@@ -23,13 +23,13 @@ jobs:
           GODOT_DIR="Godot_v${GODOT_VER}-stable_mono_linux_x86_64"
           wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_TAG}/${GODOT_DIR}.zip"
           unzip -q "${GODOT_DIR}.zip"
-          sudo mv "${GODOT_DIR}/Godot_v${GODOT_VER}-stable_mono_linux.x86_64" /usr/local/bin/godot-headless
-          rm -rf "${GODOT_DIR}" "${GODOT_DIR}.zip"
+          sudo mv "${GODOT_DIR}" /opt/godot
+          sudo ln -sf "/opt/godot/Godot_v${GODOT_VER}-stable_mono_linux.x86_64" /usr/local/bin/godot-headless
+          rm -f "${GODOT_DIR}.zip"
 
           mkdir -p ~/.local/share/godot/export_templates
           wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_TAG}/Godot_v${GODOT_VER}-stable_mono_export_templates.tpz"
           unzip -qo "Godot_v${GODOT_VER}-stable_mono_export_templates.tpz" -d ~/.local/share/godot/export_templates/
-          # Move files from nested dir up one level
           cd ~/.local/share/godot/export_templates
           for d in */; do [ -d "$d" ] && mv "$d"/* ./ 2>/dev/null && rmdir "$d" 2>/dev/null; done
           rm -f "${OLDPWD}/Godot_v${GODOT_VER}-stable_mono_export_templates.tpz"
