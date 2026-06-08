@@ -39,7 +39,7 @@ fi
 # .NET 8 Desktop Runtime
 if [ ! -f "$SIDECAR_DIR/dotnet8-desktop-runtime-x64.exe" ]; then
   echo "Downloading .NET 8 Desktop Runtime..."
-  curl -sL "https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/runtime-desktop-8.0.0-windows-x64-installer" -o "$SIDECAR_DIR/dotnet8-desktop-runtime-x64.exe"
+  curl -sL "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/8.0.0/windowsdesktop-runtime-8.0.0-win-x64.exe" -o "$SIDECAR_DIR/dotnet8-desktop-runtime-x64.exe"
   echo "  dotnet8-desktop-runtime-x64.exe downloaded"
 fi
 
