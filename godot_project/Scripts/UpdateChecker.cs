@@ -29,6 +29,8 @@ public static class UpdateChecker
         {
             var request = new HttpRequestMessage(HttpMethod.Get, AppConfig.UpdateRepoUrl);
             request.Headers.UserAgent.ParseAdd("VelosCCS");
+            if (!string.IsNullOrEmpty(AppConfig.UpdateRepoToken))
+                request.Headers.Add("Authorization", $"Bearer {AppConfig.UpdateRepoToken}");
 
             using var response = await _http.SendAsync(request);
             response.EnsureSuccessStatusCode();
@@ -94,6 +96,8 @@ public static class UpdateChecker
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("VelosCCS");
+        if (!string.IsNullOrEmpty(AppConfig.UpdateRepoToken))
+            request.Headers.Add("Authorization", $"Bearer {AppConfig.UpdateRepoToken}");
 
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();

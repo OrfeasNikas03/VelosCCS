@@ -29,6 +29,11 @@ jobs:
           ln -sf ~/.local/share/godot/export_templates/${GODOT_VER}.stable ~/.local/share/godot/export_templates/${GODOT_VER}.stable.mono
           rm -f Godot_v${GODOT_VER}-stable_linux_headless.64.zip Godot_v${GODOT_VER}-stable_export_templates.tpz
 
+      - name: Inject update config
+        run: |
+          sed -i "s|UpdateRepoUrl = \"\"|UpdateRepoUrl = \"${{ secrets.UPDATE_REPO_URL }}\"|" godot_project/Scripts/Config.cs
+          sed -i "s|UpdateRepoTokenFallback = \"\"|UpdateRepoTokenFallback = \"${{ secrets.UPDATE_TOKEN }}\"|" godot_project/Scripts/Config.cs
+
       - name: Build C# project
         run: dotnet build godot_project/ -c Release
 

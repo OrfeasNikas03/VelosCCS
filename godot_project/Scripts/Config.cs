@@ -36,7 +36,9 @@ public static class AppConfig
 
     public const string DefaultAspect = "9:16";
 
-    public const string UpdateRepoUrl = "";  // SET THIS: "https://api.github.com/repos/anomalyco/cliptool/releases/latest"
+    public const string UpdateRepoUrl = "";  // SET THIS: "https://api.github.com/repos/OrfeasNikas03/VelosCCS/releases/latest"
+    public static string UpdateRepoToken => System.Environment.GetEnvironmentVariable("VELOSCCS_UPDATE_TOKEN") ?? UpdateRepoTokenFallback;
+    public const string UpdateRepoTokenFallback = "";  // SET THIS to a GitHub PAT (Contents:read) before release builds
     public static DateTime? LastUpdateCheck { get; set; } = null;
     public static string LastUpdateVersion { get; set; } = "";
     public static string SkipUpdateVersion { get; set; } = "";
