@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /ref/
+Disallow: /login-success
+Disallow: /font-line-height-calculator
+Disallow: /sticker-render
+Disallow: /video-render
+Disallow: /feature-promo-content

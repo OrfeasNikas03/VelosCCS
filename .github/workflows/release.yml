@@ -1,0 +1,68 @@
+name: Build & Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Godot 4.6.3 headless + export templates
+        run: |
+          GODOT_VER=4.6.3
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}-stable_linux_headless.64.zip
+          unzip -q Godot_v${GODOT_VER}-stable_linux_headless.64.zip
+          sudo mv Godot_v${GODOT_VER}-stable_linux_headless.64 /usr/local/bin/godot-headless
+
+          mkdir -p ~/.local/share/godot/export_templates
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VER}/Godot_v${GODOT_VER}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VER}-stable_export_templates.tpz -d ~/.local/share/godot/export_templates
+          ln -sf ~/.local/share/godot/export_templates/${GODOT_VER}.stable ~/.local/share/godot/export_templates/${GODOT_VER}.stable.mono
+          rm -f Godot_v${GODOT_VER}-stable_linux_headless.64.zip Godot_v${GODOT_VER}-stable_export_templates.tpz
+
+      - name: Build C# project
+        run: dotnet build godot_project/ -c Release
+
+      - name: Export Windows binary
+        run: |
+          mkdir -p app_exports/windows
+          godot-headless --headless --path godot_project/ --export-release "Windows Desktop" 2>&1
+
+      - name: Publish WhisperWorker for Windows
+        run: dotnet publish WhisperWorker/WhisperWorker.csproj -c Release -r win-x64 --self-contained -o godot_project/WhisperWorker_published
+
+      - name: Install Wine + Inno Setup
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq wine64 wine32
+
+          wget -q https://jrsoftware.org/download.php/is.exe -O is.exe
+          wine is.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\\InnoSetup"
+          echo "INNO_DIR=\$HOME/.wine/drive_c/InnoSetup" >> \$GITHUB_ENV
+
+      - name: Build Inno Setup installer
+        run: |
+          cd godot_project
+          wine "$HOME/.wine/drive_c/InnoSetup/ISCC.exe" VelosCCS_Setup.iss
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: godot_project/installer_build/*.exe
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: godot_project/installer_build/*.exe
+          generate_release_notes: true

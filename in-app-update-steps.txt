@@ -1,0 +1,115 @@
+Velos Content Creation Suite — In-App Update Implementation Steps
+=================================================================
+
+Prerequisite: Fill in Config.cs UpdateRepoUrl with the GitHub API URL before building.
+
+Config.cs — Define placeholders:
+---------------------------------
+  public const string UpdateRepoUrl = "";  // SET THIS: "https://api.github.com/repos/owner/cliptool/releases/latest"
+  public static DateTime? LastUpdateCheck { get; set; } = null;
+  public static string LastUpdateVersion { get; set; } = "";
+  public static string SkipUpdateVersion { get; set; } = "";
+  Persist these in settings.json via LoadSettings() / SaveSettings().
+
+ClipTool_Setup.iss — Modify:
+-----------------------------
+  [Setup]
+  CloseApplications=yes
+  AppMutex=VelosCCSUpdateMutex
+
+  New file: Scripts/UpdateChecker.cs — Static update logic:
+----------------------------------------------------------
+  class UpdateInfo { string LatestVersion, DownloadUrl, Changelog, PublishedAt }
+
+  CheckAsync(string currentVersion)
+    → GET UpdateRepoUrl via HttpClient
+    → Parse JSON: tag_name, body, assets[].browser_download_url
+    → Strip "v" prefix from tag_name
+    → Compare semver with currentVersion (Version.TryParse, > comparison)
+    → If newer → return UpdateInfo
+    → If same/older → return null
+
+  DownloadInstallerAsync(string url, string destPath, IProgress<double> progress)
+    → HttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead)
+    → Stream response.Content to FileStream
+    → Report progress from totalBytes / bytesRead
+    → Return destPath
+
+  ApplyUpdate(string installerPath)
+    → Process.Start(installerPath, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART")
+    → GetTree().Quit()
+
+  ShouldCheck() — returns true if >24h since LastUpdateCheck or null
+
+New file: Scripts/UpdateDialog.cs — AcceptDialog subclass:
+-----------------------------------------------------------
+  Title = "Update Available"
+  BuildUI():
+    Label: "ClipTool v{currentVersion} → v{latestVersion}"
+    RichTextLabel: changelog text
+    ProgressBar + StatusLabel (hidden initially)
+    VBoxContainer buttons: [Update Now] [Later]
+
+  OnUpdateNow():
+    → Disable button, show progress bar
+    → DownloadInstallerAsync with progress updates
+    → On complete → ApplyUpdate()
+
+  OnLater():
+    → Save SkipUpdateVersion = latestVersion
+    → Hide dialog
+
+MainWindow.cs — Modify top bar:
+--------------------------------
+  Add version label button between help button (?) and settings gear:
+    var versionBtn = new Button
+    {
+        Text = $"v{AppConfig.AppVersion}",
+        Flat = true,
+        Tooltip = "Check for updates"
+    };
+    versionBtn.Pressed += OnCheckForUpdates;
+    actionH.AddChild(versionBtn);  // before settingsBtn
+
+  In _Ready(), after ForceLayoutUpdate:
+    CallDeferred(nameof(RunBackgroundUpdateCheck));
+
+  Add method:
+    private async void RunBackgroundUpdateCheck()
+    {
+        if (!UpdateChecker.ShouldCheck()) return;
+        var info = await UpdateChecker.CheckAsync(AppConfig.AppVersion);
+        if (info != null)
+            // Show subtle toast: "Update v{info.LatestVersion} available"
+            // ToastManager.Info("Update available", $"v{info.LatestVersion} is ready");
+            // Store so versionBtn can later open the dialog
+    }
+
+MainWindow.Actions.cs — Add handler:
+-------------------------------------
+  private async void OnCheckForUpdates()
+  {
+      var info = await UpdateChecker.CheckAsync(AppConfig.AppVersion);
+      if (info == null)
+      {
+          ToastManager.Info("Up to date", $"ClipTool v{AppConfig.AppVersion} is the latest version.");
+          return;
+      }
+      var dlg = new UpdateDialog(info, AppConfig.AppVersion);
+      AddChild(dlg);
+      dlg.PopupCentered();
+  }
+
+Silent Install Details:
+------------------------
+  Inno Setup invocation:
+    ClipTool_Windows_Setup_v4.2.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+  CloseApplications=yes + AppMutex=ClipToolUpdateMutex:
+    Inno Setup waits for the mutex to release (app quit) before overwriting files.
+    Mutex is held while the app runs, released on quit.
+
+  UAC Prompt:
+    PrivilegesRequired=admin → UAC still appears even with /VERYSILENT.
+    This is accepted UX (user initiated the update).
+    No way to bypass UAC silently while installing to Program Files.

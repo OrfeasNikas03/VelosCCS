@@ -1,0 +1,25 @@
+# Godot exports
+app_exports/
+
+# Godot build artifacts
+godot_project/.godot/
+godot_project/installer_build/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+dist/
+Figma\ Svgs/
