@@ -23,3 +23,11 @@ Thumbs.db
 # Misc
 dist/
 Figma\ Svgs/
+
+# Large binaries — downloaded at build time
+godot_project/installer_sidecar/ffmpeg.exe
+godot_project/installer_sidecar/ffprobe.exe
+godot_project/installer_sidecar/yt-dlp.exe
+godot_project/installer_sidecar/vc_redist.x64.exe
+godot_project/installer_sidecar/dotnet8-desktop-runtime-x64.exe
+godot_project/LlamaWorker_published/

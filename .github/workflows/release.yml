@@ -40,6 +40,12 @@ jobs:
       - name: Publish WhisperWorker for Windows
         run: dotnet publish WhisperWorker/WhisperWorker.csproj -c Release -r win-x64 --self-contained -o godot_project/WhisperWorker_published
 
+      - name: Download sidecar dependencies
+        run: bash download_sidecar.sh
+
+      - name: Ensure LlamaWorker directory exists
+        run: mkdir -p godot_project/LlamaWorker_published
+
       - name: Install Wine + Inno Setup
         run: |
           sudo dpkg --add-architecture i386
