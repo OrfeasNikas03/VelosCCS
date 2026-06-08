@@ -57,9 +57,6 @@ jobs:
       - name: Download sidecar dependencies
         run: bash download_sidecar.sh
 
-      - name: Ensure LlamaWorker directory exists
-        run: mkdir -p godot_project/LlamaWorker_published
-
       - name: Install Wine + Inno Setup
         run: |
           sudo dpkg --add-architecture i386

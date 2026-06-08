@@ -70,8 +70,6 @@ Source: ".\installer_sidecar\dotnet8-desktop-runtime-x64.exe"; DestDir: "{tmp}";
 ; Whisper worker — must be published for win-x64 before building installer
 Source: ".\WhisperWorker_published\*"; DestDir: "{app}\WhisperWorker_published"; Flags: ignoreversion recursesubdirs createallsubdirs
 
-; LlamaWorker published binaries (llama-cli.exe + native DLLs for Windows)
-Source: ".\LlamaWorker_published\*"; DestDir: "{app}\LlamaWorker_published"; Flags: ignoreversion
 
 ; Third-party licenses
 Source: "LICENSE-THIRD-PARTY.txt"; DestDir: "{app}"; Flags: ignoreversion
