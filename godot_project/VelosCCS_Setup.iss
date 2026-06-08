@@ -3,7 +3,7 @@
 ;   wine "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" VelosCCS_Setup.iss
 
 #define MyAppName "Velos Content Creation Suite"
-#define MyAppVersion "4.0.4"
+#define MyAppVersion "4.0.5"
 #define MyAppPublisher "VelosCCS"
 #define MyAppURL "https://cliptool.app"
 #define MyAppExeName "VelosCCS.exe"
