@@ -142,31 +142,43 @@ public class StreamManager
         return path;
     }
 
+    private static readonly string[] FormatFallbacks =
+    {
+        "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
+        "bestvideo[height<=720]+bestaudio/best[height<=720]",
+        "best[height<=720]",
+        "best",
+    };
+
     public string DownloadSection(string url, double start, double duration, string outputPath)
     {
         string ytDlp = FindYtDlp();
         string fmtStart = FormatTime(start);
         string fmtEnd = FormatTime(start + duration);
 
-        var psi = new ProcessStartInfo(ytDlp,
-            $"--download-sections \"*{fmtStart}-{fmtEnd}\" " +
-            $"-f \"bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]\" " +
-            $"-o \"{outputPath}\" --no-playlist --force-keyframes-at-cuts {url}")
+        var errors = new System.Collections.Generic.List<string>();
+        foreach (var fmt in FormatFallbacks)
         {
-            RedirectStandardOutput = false,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+            var psi = new ProcessStartInfo(ytDlp,
+                $"--download-sections \"*{fmtStart}-{fmtEnd}\" " +
+                $"-f \"{fmt}\" " +
+                $"-o \"{outputPath}\" --no-playlist --force-keyframes-at-cuts {url}")
+            {
+                RedirectStandardOutput = false,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
 
-        using var proc = Process.Start(psi);
-        if (proc == null) throw new InvalidOperationException("Failed to start yt-dlp");
-        string stderr = proc.StandardError.ReadToEnd();
-        proc.WaitForExit();
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException($"yt-dlp section download failed (exit {proc.ExitCode}): {stderr.Trim()}");
-
-        return outputPath;
+            using var proc = Process.Start(psi);
+            if (proc == null) throw new InvalidOperationException("Failed to start yt-dlp");
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit();
+            if (proc.ExitCode == 0)
+                return outputPath;
+            errors.Add($"format '{fmt}' failed: {stderr.Trim()}");
+        }
+        throw new InvalidOperationException($"yt-dlp section download failed: {string.Join("; ", errors)}");
     }
 
     public delegate void DownloadProgressCallback(string percent, string speed, string eta);
@@ -176,44 +188,48 @@ public class StreamManager
         string ytDlp = FindYtDlp();
         string fmtStart = FormatTime(start);
         string fmtEnd = FormatTime(start + duration);
-        var stderrBuf = new System.Text.StringBuilder();
         GD.Print($"[StreamManager] DownloadSection start: {url} [{fmtStart}-{fmtEnd}] -> {outputPath}");
 
-        var psi = new ProcessStartInfo(ytDlp,
-            $"--download-sections \"*{fmtStart}-{fmtEnd}\" " +
-            $"-f \"bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]\" " +
-            $"-o \"{outputPath}\" --newline --force-keyframes-at-cuts {url}")
+        var errors = new System.Collections.Generic.List<string>();
+        foreach (var fmt in FormatFallbacks)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        using var proc = new Process { StartInfo = psi };
-        proc.OutputDataReceived += (s, e) =>
-        {
-            if (string.IsNullOrEmpty(e.Data)) return;
-            var match = Regex.Match(e.Data, @"\[download\]\s+(?<pct>[\d\.]+)% of.*?at\s+(?<spd>.*?)\s+ETA\s+(?<eta>.*)");
-            if (match.Success)
+            var stderrBuf = new System.Text.StringBuilder();
+            var psi = new ProcessStartInfo(ytDlp,
+                $"--download-sections \"*{fmtStart}-{fmtEnd}\" " +
+                $"-f \"{fmt}\" " +
+                $"-o \"{outputPath}\" --newline --force-keyframes-at-cuts {url}")
             {
-                onProgress?.Invoke(match.Groups["pct"].Value, match.Groups["spd"].Value, match.Groups["eta"].Value);
-            }
-        };
-        proc.ErrorDataReceived += (s, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                stderrBuf.AppendLine(e.Data);
-        };
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
 
-        proc.Start();
-        proc.BeginOutputReadLine();
-        proc.BeginErrorReadLine();
-        await proc.WaitForExitAsync().ConfigureAwait(false);
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException($"yt-dlp section download failed (exit {proc.ExitCode}): {stderrBuf.ToString().Trim()}");
+            using var proc = new Process { StartInfo = psi };
+            proc.OutputDataReceived += (s, e) =>
+            {
+                if (string.IsNullOrEmpty(e.Data)) return;
+                var match = Regex.Match(e.Data, @"\[download\]\s+(?<pct>[\d\.]+)% of.*?at\s+(?<spd>.*?)\s+ETA\s+(?<eta>.*)");
+                if (match.Success)
+                {
+                    onProgress?.Invoke(match.Groups["pct"].Value, match.Groups["spd"].Value, match.Groups["eta"].Value);
+                }
+            };
+            proc.ErrorDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    stderrBuf.AppendLine(e.Data);
+            };
 
-        return outputPath;
+            proc.Start();
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
+            await proc.WaitForExitAsync().ConfigureAwait(false);
+            if (proc.ExitCode == 0)
+                return outputPath;
+            errors.Add($"format '{fmt}' failed: {stderrBuf.ToString().Trim()}");
+        }
+        throw new InvalidOperationException($"yt-dlp section download failed: {string.Join("; ", errors)}");
     }
 
     public static string FormatTime(double t)

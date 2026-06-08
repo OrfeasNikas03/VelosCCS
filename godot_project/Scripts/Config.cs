@@ -9,7 +9,7 @@ namespace VelosCCS;
 public static class AppConfig
 {
     public const string AppName = "Velos Content Creation Suite";
-    public const string AppVersion = "4.0.4";
+    public const string AppVersion = "4.0.5";
 
     public static string WhisperModel => System.Environment.GetEnvironmentVariable("CLIPTOOL_WHISPER_MODEL") ?? "base";
     public static string WhisperDevice => System.Environment.GetEnvironmentVariable("CLIPTOOL_WHISPER_DEVICE") ?? "cpu";
@@ -36,15 +36,16 @@ public static class AppConfig
 
     public const string DefaultAspect = "9:16";
 
-    public const string UpdateRepoUrl = "";  // SET THIS: "https://api.github.com/repos/OrfeasNikas03/VelosCCS/releases/latest"
+    public const string UpdateRepoUrl = "https://api.github.com/repos/OrfeasNikas03/VelosCCS/releases/latest";  // SET THIS: "https://api.github.com/repos/OrfeasNikas03/VelosCCS/releases/latest"
     public static string UpdateRepoToken => System.Environment.GetEnvironmentVariable("VELOSCCS_UPDATE_TOKEN") ?? UpdateRepoTokenFallback;
-    public const string UpdateRepoTokenFallback = "";  // SET THIS to a GitHub PAT (Contents:read) before release builds
+    public const string UpdateRepoTokenFallback = "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";  // SET THIS to a GitHub PAT (Contents:read) before release builds
     public static DateTime? LastUpdateCheck { get; set; } = null;
     public static string LastUpdateVersion { get; set; } = "";
     public static string SkipUpdateVersion { get; set; } = "";
 
     public static string CaptionLanguage { get; set; } = "en";
     public static string ExportOutputDir { get; set; } = "";
+    public static string ClipOutputDir { get; set; } = "";
 
     public static void LoadSettings()
     {
@@ -57,6 +58,7 @@ public static class AppConfig
             if (data == null) return;
             if (data.TryGetValue("caption_language", out var lang)) CaptionLanguage = lang;
             if (data.TryGetValue("export_output_dir", out var dir)) ExportOutputDir = dir;
+            if (data.TryGetValue("clip_output_dir", out var clipDir)) ClipOutputDir = clipDir;
             if (data.TryGetValue("last_update_check", out var lc) && DateTime.TryParse(lc, out var dt)) LastUpdateCheck = dt;
             if (data.TryGetValue("last_update_version", out var uv)) LastUpdateVersion = uv;
             if (data.TryGetValue("skip_update_version", out var sv)) SkipUpdateVersion = sv;
@@ -76,6 +78,7 @@ public static class AppConfig
             {
                 ["caption_language"] = CaptionLanguage,
                 ["export_output_dir"] = ExportOutputDir,
+                ["clip_output_dir"] = ClipOutputDir,
                 ["last_update_check"] = LastUpdateCheck?.ToString("o") ?? "",
                 ["last_update_version"] = LastUpdateVersion,
                 ["skip_update_version"] = SkipUpdateVersion,

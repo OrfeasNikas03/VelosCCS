@@ -462,7 +462,9 @@ public partial class MainWindow
 
 		string? audioFile = null;
 		string audioDir = ProjectSettings.GlobalizePath("user://temp_audio/");
-		string clipsDir = ProjectSettings.GlobalizePath("user://clips/");
+		string clipsDir = !string.IsNullOrEmpty(AppConfig.ClipOutputDir)
+			? AppConfig.ClipOutputDir
+			: ProjectSettings.GlobalizePath("user://clips/");
 		Directory.CreateDirectory(audioDir);
 		Directory.CreateDirectory(clipsDir);
 
@@ -734,7 +736,9 @@ public partial class MainWindow
 
 		try
 		{
-			string outputDir = ProjectSettings.GlobalizePath("user://clips/");
+			string outputDir = !string.IsNullOrEmpty(AppConfig.ClipOutputDir)
+				? AppConfig.ClipOutputDir
+				: ProjectSettings.GlobalizePath("user://clips/");
 			Directory.CreateDirectory(outputDir);
 			int i = 0;
 			foreach (var frag in fragments)

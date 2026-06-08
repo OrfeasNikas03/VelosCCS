@@ -1148,6 +1148,32 @@ public partial class MainWindow
 			if (string.IsNullOrEmpty(outputDir))
 				outputDir = AppConfig.ExportOutputDir;
 			if (string.IsNullOrEmpty(outputDir))
+			{
+				string? chosenDir = null;
+				var fd = new FileDialog
+				{
+					Title = "Choose export output folder",
+					FileMode = FileDialog.FileModeEnum.OpenDir,
+					Access = FileDialog.AccessEnum.Filesystem,
+					UseNativeDialog = true,
+					CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+				};
+				fd.DirSelected += path => chosenDir = path;
+				AddChild(fd);
+				fd.PopupCentered();
+				await ToSignal(fd, "popup_hide");
+				fd.QueueFree();
+				if (string.IsNullOrEmpty(chosenDir))
+				{
+					SetStatus("Export cancelled — no output folder selected", Colors.Red);
+					return;
+				}
+				outputDir = chosenDir;
+				ExportOutputDir = chosenDir;
+				AppConfig.ExportOutputDir = chosenDir;
+				AppConfig.SaveSettings();
+			}
+			if (string.IsNullOrEmpty(outputDir))
 				outputDir = AppConfig.OutputDir;
 			System.IO.Directory.CreateDirectory(outputDir);
 

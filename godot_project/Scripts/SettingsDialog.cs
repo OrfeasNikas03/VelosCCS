@@ -8,13 +8,16 @@ namespace VelosCCS;
 public partial class SettingsDialog : AcceptDialog
 {
     private LineEdit _outputDir = null!;
+    private LineEdit _clipOutputDir = null!;
     private CheckBox _normalizeAudio = null!;
     private OptionButton _captionLanguage = null!;
     public string OutputDir => _outputDir.Text.Replace('/', System.IO.Path.DirectorySeparatorChar);
+    public string ClipOutputDir => _clipOutputDir.Text.Replace('/', System.IO.Path.DirectorySeparatorChar);
     public bool NormalizeAudio => _normalizeAudio.ButtonPressed;
     public string CaptionLanguage => (string)_captionLanguage.GetItemMetadata(_captionLanguage.Selected);
 
     public string CurrentOutputDir { get; set; } = "";
+    public string CurrentClipOutputDir { get; set; } = "";
     public bool CurrentNormalizeAudio { get; set; } = true;
     public string CurrentCaptionLanguage { get; set; } = "en";
 
@@ -67,6 +70,35 @@ public partial class SettingsDialog : AcceptDialog
         };
         dirRow.AddChild(browseBtn);
         vbox.AddChild(dirRow);
+
+        // AI Clip output directory
+        var clipDirLabel = new Label { Text = "AI Clip Output Directory" };
+        vbox.AddChild(clipDirLabel);
+        var clipDirRow = new HBoxContainer();
+        _clipOutputDir = new LineEdit
+        {
+            Text = !string.IsNullOrEmpty(CurrentClipOutputDir)
+                ? CurrentClipOutputDir.Replace('/', System.IO.Path.DirectorySeparatorChar)
+                : ProjectSettings.GlobalizePath("user://clips/"),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        clipDirRow.AddChild(_clipOutputDir);
+        var clipBrowseBtn = new Button { Text = "Browse" };
+        clipBrowseBtn.Pressed += () =>
+        {
+            var fd = new FileDialog
+            {
+                FileMode = FileDialog.FileModeEnum.OpenDir,
+                Access = FileDialog.AccessEnum.Filesystem,
+                UseNativeDialog = true,
+                CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+            };
+            fd.DirSelected += path => { _clipOutputDir.Text = path.Replace('/', System.IO.Path.DirectorySeparatorChar); };
+            AddChild(fd);
+            fd.PopupCentered();
+        };
+        clipDirRow.AddChild(clipBrowseBtn);
+        vbox.AddChild(clipDirRow);
 
 		// Caption language — all 99 Whisper-supported languages
 		var langLabel = new Label { Text = "Caption Language" };

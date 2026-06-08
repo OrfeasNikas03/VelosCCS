@@ -699,6 +699,7 @@ public partial class MainWindow : Control
 			var dlg = new SettingsDialog
 			{
 				CurrentOutputDir = ExportOutputDir,
+				CurrentClipOutputDir = AppConfig.ClipOutputDir,
 				CurrentNormalizeAudio = ExportNormalizeAudio,
 				CurrentCaptionLanguage = ExportCaptionLanguage,
 			};
@@ -709,6 +710,7 @@ public partial class MainWindow : Control
 				ExportCaptionLanguage = dlg.CaptionLanguage;
 				AppConfig.CaptionLanguage = dlg.CaptionLanguage;
 				AppConfig.ExportOutputDir = dlg.OutputDir;
+				AppConfig.ClipOutputDir = dlg.ClipOutputDir;
 				AppConfig.SaveSettings();
 			};
 			AddChild(dlg);
@@ -885,7 +887,7 @@ public partial class MainWindow : Control
 		_previewWrapper.AddChild(previewH);
 
 		// Edit Monitor (left)
-		_sourceVbox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = Vector2.Zero };
+		_sourceVbox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(200, 0) };
 		_sourceVbox.AddChild(new Label { Text = "EDIT", HorizontalAlignment = HorizontalAlignment.Center, CustomMinimumSize = new Vector2(0, 0) });
 
 		var srcBg = new PanelContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -933,7 +935,7 @@ public partial class MainWindow : Control
 		previewH.AddChild(_sourceVbox);
 
 		// Master Monitor (right)
-		_resVbox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = Vector2.Zero };
+		_resVbox = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(200, 0) };
 		var resVbox = _resVbox;
 		resVbox.AddChild(new Label { Text = "RESULT", HorizontalAlignment = HorizontalAlignment.Center, CustomMinimumSize = new Vector2(0, 0) });
 
@@ -2004,6 +2006,7 @@ public partial class MainWindow : Control
 				var dlg = new SettingsDialog
 				{
 					CurrentOutputDir = ExportOutputDir,
+					CurrentClipOutputDir = AppConfig.ClipOutputDir,
 					CurrentNormalizeAudio = ExportNormalizeAudio,
 					CurrentCaptionLanguage = ExportCaptionLanguage,
 				};
@@ -2014,6 +2017,7 @@ public partial class MainWindow : Control
 					ExportCaptionLanguage = dlg.CaptionLanguage;
 					AppConfig.CaptionLanguage = dlg.CaptionLanguage;
 					AppConfig.ExportOutputDir = dlg.OutputDir;
+					AppConfig.ClipOutputDir = dlg.ClipOutputDir;
 					AppConfig.SaveSettings();
 				};
 				AddChild(dlg);
