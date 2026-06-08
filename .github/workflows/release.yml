@@ -64,16 +64,16 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update -qq
-          sudo apt-get install -y -qq wine64 wine32
+          sudo apt-get install -y -qq wine64 wine32 xvfb
 
           wget -q https://jrsoftware.org/download.php/is.exe -O is.exe
-          wine is.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\\InnoSetup"
+          xvfb-run -a wine is.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="C:\\InnoSetup"
           echo "INNO_DIR=\$HOME/.wine/drive_c/InnoSetup" >> \$GITHUB_ENV
 
       - name: Build Inno Setup installer
         run: |
           cd godot_project
-          wine "$HOME/.wine/drive_c/InnoSetup/ISCC.exe" VelosCCS_Setup.iss
+          xvfb-run -a wine "$HOME/.wine/drive_c/InnoSetup/ISCC.exe" VelosCCS_Setup.iss
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
