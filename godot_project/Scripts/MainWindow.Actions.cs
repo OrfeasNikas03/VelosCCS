@@ -139,6 +139,7 @@ public partial class MainWindow
 	// starts at split time. Both get the cloned properties.
 	private void SplitAtPlayhead()
 	{
+		Log.Print("[UI] SplitAtPlayhead");
 		if (_timeline == null) return;
 		SnapshotState();
 		double time = _timeline.SelectionPos;
@@ -187,6 +188,7 @@ public partial class MainWindow
 	// Empty tracks are cleaned up by UpdateTracks.
 	private void DeleteSelected()
 	{
+		Log.Print("[UI] DeleteSelected");
 		SnapshotState();
 		int[] selIndices = _timeline.GetSelectedIndices();
 		if (selIndices.Length == 0) return;
@@ -219,6 +221,7 @@ public partial class MainWindow
 
 	private void CopySelected()
 	{
+		Log.Print("[UI] CopySelected");
 		int[] selIndices = _timeline.GetSelectedIndices();
 		if (selIndices.Length == 0) return;
 
@@ -242,6 +245,7 @@ public partial class MainWindow
 
 	private void CutSelected()
 	{
+		Log.Print("[UI] CutSelected");
 		CopySelected();
 		DeleteSelected();
 		if (_clipboard?.Count > 0)
@@ -253,6 +257,7 @@ public partial class MainWindow
 
 	private void DuplicateSelectedClips()
 	{
+		Log.Print("[UI] DuplicateSelectedClips");
 		CopySelected();
 		if (_clipboard == null || _clipboard.Count == 0) return;
 		// Offset slightly so duplicate is visible next to original
@@ -264,6 +269,7 @@ public partial class MainWindow
 
 	private void Paste()
 	{
+		Log.Print("[UI] Paste");
 		PasteWithOffset(0);
 	}
 
@@ -394,6 +400,7 @@ public partial class MainWindow
 	// Add a text clip: scans existing Video tracks for a 5s gap; if none found, creates a new track.
 	private async void OnAddTextClip()
 	{
+		Log.Print("[UI] OnAddTextClip");
 		double targetStart = _timeline.SelectionPos;
 		double targetEnd = targetStart + 5.0;
 
@@ -544,6 +551,7 @@ public partial class MainWindow
 			string capturedName = fontName;
 			dlBtn.Pressed += async () =>
 			{
+				Log.Print("[UI] Button: Font Select/Download");
 				dlBtn.Text = "Loading...";
 				string? path = await _fontManager.DownloadFont(capturedName);
 				if (path != null)
@@ -563,7 +571,7 @@ public partial class MainWindow
 		}
 
 		var closeBtn = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-		closeBtn.Pressed += () => dialog.BounceOutThenFree();
+		closeBtn.Pressed += () => { Log.Print("[UI] Button: Font Close"); dialog.BounceOutThenFree(); };
 		vbox.AddChild(closeBtn);
 
 		AddChild(dialog);
@@ -611,6 +619,7 @@ public partial class MainWindow
 			string capturedSfxName = sfx.Key;
 			previewBtn.Pressed += async () =>
 			{
+				Log.Print("[UI] Button: SFX Preview");
 				string? path = await _sfxManager.DownloadSFX(capturedSfxName);
 				if (path != null)
 				{
@@ -623,6 +632,7 @@ public partial class MainWindow
 			var useBtn = new Button { Text = "ADD TO TIMELINE", Modulate = Color.FromHtml("#D0570C") };
 			useBtn.Pressed += async () =>
 			{
+				Log.Print("[UI] Button: SFX Add to Timeline");
 				string? path = await _sfxManager.DownloadSFX(capturedSfxName);
 				if (path != null)
 				{
@@ -636,7 +646,7 @@ public partial class MainWindow
 		}
 
 		var closeBtn = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-		closeBtn.Pressed += () => dialog.BounceOutThenFree();
+		closeBtn.Pressed += () => { Log.Print("[UI] Button: SFX Close"); dialog.BounceOutThenFree(); };
 		vbox.AddChild(closeBtn);
 
 		AddChild(dialog);
@@ -762,6 +772,7 @@ public partial class MainWindow
 		// Import button wiring
 		importBtn.Pressed += () =>
 		{
+			Log.Print("[UI] Button: Sticker Import");
 			var fd = new FileDialog
 			{
 				Title = "Import Sticker",
@@ -840,6 +851,7 @@ public partial class MainWindow
 			var captured = path;
 			card.Pressed += () =>
 			{
+				Log.Print("[UI] Button: Sticker Select");
 				if (IsInstanceValid(dialog)) dialog.BounceOutThenFree();
 				AddImageClipToTimeline(captured);
 			};
@@ -853,7 +865,7 @@ public partial class MainWindow
 
 		// Close button
 		var closeBtn = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-		closeBtn.Pressed += () => { if (IsInstanceValid(dialog)) dialog.BounceOutThenFree(); };
+		closeBtn.Pressed += () => { Log.Print("[UI] Button: Sticker Close"); if (IsInstanceValid(dialog)) dialog.BounceOutThenFree(); };
 		vbox.AddChild(closeBtn);
 
 		GetTree().Root.AddChild(dialog);
@@ -891,6 +903,7 @@ public partial class MainWindow
 	// Call backend reframe (face detection) to suggest crop rectangle for Content region
 	private async void OnAutoFrame()
 	{
+		Log.Print("[UI] OnAutoFrame");
 		if (string.IsNullOrEmpty(_videoPath)) { SetStatus("Load a video first", Colors.Red); return; }
 
 		SetStatus("Detecting faces...", Colors.Yellow);
@@ -912,6 +925,7 @@ public partial class MainWindow
 
 			_overlay.EmitSignal("LayoutChanged", "Content");
 			SetStatus("Auto-frame applied", Color.FromHtml("#D0570C"));
+			this.LogSizes("OnAutoFrame");
 		}
 		catch (Exception e)
 		{
@@ -923,6 +937,7 @@ public partial class MainWindow
 	// "Captions" track, add entries to media bin, and switch to Edit mode.
 	private async void OnGenerateCaptions()
 	{
+		Log.Print("[UI] OnGenerateCaptions");
 		if (string.IsNullOrEmpty(_videoPath)) { SetStatus("Load a video first", Colors.Red); return; }
 
 		SnapshotState();
@@ -987,6 +1002,8 @@ public partial class MainWindow
 
 			if (_currentState == ViewState.Layout)
 				SwitchToState(ViewState.Edit);
+
+			this.LogSizes("OnGenerateCaptions");
 		}
 		catch (Exception e)
 		{
@@ -1004,6 +1021,7 @@ public partial class MainWindow
 		GD.Print($"[Export] Tracks: {_tracks.Count}, clips per track: {string.Join(", ", _tracks.Select(t => $"{t.Name}={t.Clips.Count}"))}");
 		GD.Print($"[Export] Settings: aspect={ExportAspectRatio}, normalize={ExportNormalizeAudio}");
 		GD.Print($"[Export] LayoutMode: {_outputPreview.LayoutMode}");
+		this.LogSizes("OnExportPressed");
 		var sw = System.Diagnostics.Stopwatch.StartNew();
 		var (outW, outH) = AppConfig.AspectRatios.GetValueOrDefault(ExportAspectRatio, (1080, 1920));
 		try
@@ -1345,6 +1363,7 @@ public partial class MainWindow
 
 	private async void RunBackgroundUpdateCheck()
 	{
+		Log.Print("[UI] RunBackgroundUpdateCheck");
 		if (!UpdateChecker.ShouldCheck()) return;
 
 		var info = await UpdateChecker.CheckAsync(AppConfig.AppVersion);

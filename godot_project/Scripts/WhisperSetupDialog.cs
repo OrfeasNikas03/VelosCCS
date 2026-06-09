@@ -211,6 +211,7 @@ public partial class WhisperSetupDialog : Window
 
     private async void OnDownload()
     {
+        Log.Print("[UI] WhisperSetupDialog: Download model");
         GD.Print("[WhisperSetupDialog] OnDownload clicked");
         _downloadBtn.Disabled = true;
         _skipBtn.Disabled = true;
@@ -258,6 +259,7 @@ public partial class WhisperSetupDialog : Window
 
     private void OnSkip()
     {
+        Log.Print("[UI] WhisperSetupDialog: Skip");
         GD.Print("[WhisperSetupDialog] OnSkip clicked");
         try
         {

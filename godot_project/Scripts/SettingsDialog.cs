@@ -31,9 +31,11 @@ public partial class SettingsDialog : AcceptDialog
 
     public override void _Ready()
     {
+        Log.Print("[UI] SettingsDialog opened");
         Theme = AppTheme.Create();
         BuildUI();
         this.BounceIn();
+        this.LogSizes("SettingsDialog");
     }
 
     private void BuildUI()
@@ -57,6 +59,7 @@ public partial class SettingsDialog : AcceptDialog
         var browseBtn = new Button { Text = "Browse" };
         browseBtn.Pressed += () =>
         {
+            Log.Print("[UI] SettingsDialog: Browse output dir");
             var fd = new FileDialog
             {
                 FileMode = FileDialog.FileModeEnum.OpenDir,
@@ -86,6 +89,7 @@ public partial class SettingsDialog : AcceptDialog
         var clipBrowseBtn = new Button { Text = "Browse" };
         clipBrowseBtn.Pressed += () =>
         {
+            Log.Print("[UI] SettingsDialog: Browse clip output dir");
             var fd = new FileDialog
             {
                 FileMode = FileDialog.FileModeEnum.OpenDir,
@@ -163,6 +167,7 @@ public partial class SettingsDialog : AcceptDialog
         var checkBtn = new Button { Text = "Check for Updates" };
         checkBtn.Pressed += async () =>
         {
+            Log.Print("[UI] SettingsDialog: Check for updates");
             checkBtn.Disabled = true;
             checkBtn.Text = "Checking...";
 

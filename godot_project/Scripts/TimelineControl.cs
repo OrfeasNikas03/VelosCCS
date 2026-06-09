@@ -88,6 +88,7 @@ public partial class TimelineControl : Control
 
 	public override void _Ready()
 	{
+		Log.Print("[Timeline] _Ready");
 		ClipContents = true;
 	}
 
@@ -95,6 +96,7 @@ public partial class TimelineControl : Control
 	{
 		if (what == NotificationResized)
 		{
+			Log.Print($"[Timeline] Resized to {Size}");
 			float maxV = Math.Max(0, TotalHeight - Size.Y + 10);
 			if (_vScroll > maxV) _vScroll = maxV;
 		}
@@ -111,18 +113,21 @@ public partial class TimelineControl : Control
 
 	public void StepRelative(float percent)
 	{
+		Log.Print($"[Timeline] StepRelative percent={percent}");
 		double step = GetVisibleDuration() * percent;
 		EmitSignal(SignalName.SeekRequested, Mathf.Clamp(SelectionPos + step, 0, Duration));
 	}
 
 	public void StepFrame(int direction, float fps = 30f)
 	{
+		Log.Print($"[Timeline] StepFrame dir={direction} fps={fps}");
 		double frameTime = 1.0 / fps;
 		EmitSignal(SignalName.SeekRequested, Mathf.Clamp(SelectionPos + (direction * frameTime), 0, Duration));
 	}
 
 	public void AutoZoomToClip(double start, double duration)
 	{
+		Log.Print($"[Timeline] AutoZoomToClip start={start} duration={duration}");
 		double availW = Size.X - TrackHeader - 40;
 		Zoom = availW / duration;
 		Scroll = start - (20 / Zoom);
@@ -132,21 +137,24 @@ public partial class TimelineControl : Control
 
 	public void SetSelection(double time)
 	{
+		Log.Print($"[Timeline] SetSelection time={time}");
 		SelectionPos = Mathf.Clamp(time, 0, Duration);
 		QueueRedraw();
 	}
 
-	public void SetDuration(double d) { Duration = Math.Max(d, 1); QueueRedraw(); }
-	public void SetPlayhead(double t) { PlayheadPos = t; QueueRedraw(); }
+	public void SetDuration(double d) { Log.Print($"[Timeline] SetDuration {d}"); Duration = Math.Max(d, 1); QueueRedraw(); }
+	public void SetPlayhead(double t) { Log.Print($"[Timeline] SetPlayhead {t}"); PlayheadPos = t; QueueRedraw(); }
 
 	public void SyncSelectionToPlayhead()
 	{
+		Log.Print($"[Timeline] SyncSelectionToPlayhead pos={PlayheadPos}");
 		SelectionPos = PlayheadPos;
 		QueueRedraw();
 	}
 
 	public void SetSelectedClip(int flatIndex)
 	{
+		Log.Print($"[Timeline] SetSelectedClip index={flatIndex}");
 		_selectedIndices.Clear();
 		_selectedIndices.Add(flatIndex);
 		_selectedIdx = flatIndex;
@@ -157,6 +165,7 @@ public partial class TimelineControl : Control
 
 	public void SetClips(List<ClipData> clips, int selected)
 	{
+		Log.Print($"[Timeline] SetClips count={clips.Count} selected={selected}");
 		_clips = clips;
 		_selectedIdx = selected;
 		_selectedIndices.Clear();
@@ -174,6 +183,7 @@ public partial class TimelineControl : Control
 	// Update duration based on tracks: longest clip end + 5s buffer
 	public void UpdateProjectDuration(List<TrackData> tracks, double videoDuration)
 	{
+		Log.Print($"[Timeline] UpdateProjectDuration videoDuration={videoDuration}");
 		double maxEnd = videoDuration;
 		foreach (var t in tracks)
 		{
@@ -821,10 +831,11 @@ public partial class TimelineControl : Control
 		}
 	}
 
-	public void ClearSnapping() { _snapIndicatorX = -1f; QueueRedraw(); }
+	public void ClearSnapping() { Log.Print("[Timeline] ClearSnapping"); _snapIndicatorX = -1f; QueueRedraw(); }
 
 	public void ClearClips()
 	{
+		Log.Print("[Timeline] ClearClips");
 		_clips.Clear();
 		_selectedIndices.Clear();
 		_selectedIdx = -1;
@@ -834,6 +845,7 @@ public partial class TimelineControl : Control
 
 	public void SelectAllClips()
 	{
+		Log.Print("[Timeline] SelectAllClips");
 		_selectedIndices.Clear();
 		_selectedIdx = -1;
 		for (int i = 0; i < _clips.Count; i++)
@@ -918,6 +930,7 @@ public partial class TimelineControl : Control
 
 	public override void _DropData(Vector2 atPosition, Variant data)
 	{
+		Log.Print($"[Timeline] _DropData pos={atPosition}");
 		if (data.Obj is Godot.Collections.Dictionary dict && dict.TryGetValue("asset_index", out var idxVal))
 		{
 			double time = Math.Clamp(Px2T(atPosition.X), 0, Duration);

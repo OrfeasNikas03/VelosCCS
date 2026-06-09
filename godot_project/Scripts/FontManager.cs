@@ -27,6 +27,7 @@ public partial class FontManager : Node
 
     public override void _Ready()
     {
+        Log.Print("[Font] _Ready");
         string userGlobal = ProjectSettings.GlobalizePath(UserFontDir);
         string cacheGlobal = ProjectSettings.GlobalizePath(CacheDir);
         System.IO.Directory.CreateDirectory(userGlobal);
@@ -36,9 +37,14 @@ public partial class FontManager : Node
 
     private void SyncCache()
     {
+        Log.Print("[Font] SyncCache started");
         string userDir = ProjectSettings.GlobalizePath(UserFontDir);
         string cacheDir = ProjectSettings.GlobalizePath(CacheDir);
-        if (!System.IO.Directory.Exists(userDir)) return;
+        if (!System.IO.Directory.Exists(userDir))
+        {
+            Log.Print("[Font] SyncCache finished — no user dir");
+            return;
+        }
 
         foreach (string f in System.IO.Directory.GetFiles(userDir, "*.ttf"))
         {
@@ -47,7 +53,7 @@ public partial class FontManager : Node
             if (!System.IO.File.Exists(dest))
             {
                 System.IO.File.Copy(f, dest, false);
-                GD.Print($"[FontManager] Synced: {name}");
+                Log.Print($"[Font] SyncCache: copied {name}");
             }
         }
         foreach (string f in System.IO.Directory.GetFiles(userDir, "*.otf"))
@@ -57,9 +63,10 @@ public partial class FontManager : Node
             if (!System.IO.File.Exists(dest))
             {
                 System.IO.File.Copy(f, dest, false);
-                GD.Print($"[FontManager] Synced: {name}");
+                Log.Print($"[Font] SyncCache: copied {name}");
             }
         }
+        Log.Print("[Font] SyncCache finished");
     }
 
     private static string SafeName(string name) =>
@@ -77,45 +84,63 @@ public partial class FontManager : Node
 
     public async Task<string?> DownloadFont(string family)
     {
-        if (!AvailableFonts.TryGetValue(family, out var url)) return null;
+        Log.Print($"[Font] DownloadFont entry: {family}");
+        if (!AvailableFonts.TryGetValue(family, out var url))
+        {
+            Log.Error($"[Font] DownloadFont: {family} not in available fonts");
+            return null;
+        }
 
         string userPath = UserFilePath(family);
         string cachePath = CacheFilePath(family);
 
         if (System.IO.File.Exists(cachePath))
+        {
+            Log.Print($"[Font] DownloadFont: {family} already cached at {cachePath}");
             return cachePath;
+        }
 
         try
         {
             var data = await _httpClient.GetByteArrayAsync(url);
-            if (data == null || data.Length == 0) return null;
+            if (data == null || data.Length == 0)
+            {
+                Log.Error($"[Font] DownloadFont: empty data for {family}");
+                return null;
+            }
 
             System.IO.File.WriteAllBytes(userPath, data);
             System.IO.File.Copy(userPath, cachePath, true);
 
-            GD.Print($"[FontManager] Downloaded: {family}");
+            Log.Print($"[Font] DownloadFont: {family} downloaded to {cachePath}");
             return cachePath;
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[FontManager] Download failed: {e.Message}");
+            Log.Error($"[Font] DownloadFont failed for {family}: {e.Message}");
             return null;
         }
     }
 
     public FontFile? LoadFont(string displayName)
     {
+        Log.Print($"[Font] LoadFont entry: {displayName}");
         string path = CacheFilePath(displayName);
-        if (!System.IO.File.Exists(path)) return null;
+        if (!System.IO.File.Exists(path))
+        {
+            Log.Error($"[Font] LoadFont: {displayName} not found at {path}");
+            return null;
+        }
         try
         {
             var font = new FontFile();
             font.LoadDynamicFont(path);
+            Log.Print($"[Font] LoadFont: {displayName} loaded from {path}");
             return font;
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[FontManager] Load failed for {displayName}: {e.Message}");
+            Log.Error($"[Font] LoadFont failed for {displayName}: {e.Message}");
             return null;
         }
     }

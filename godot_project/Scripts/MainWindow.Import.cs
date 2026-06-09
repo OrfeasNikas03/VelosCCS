@@ -92,6 +92,7 @@ public partial class MainWindow
 	// Query backend for video metadata (duration), update asset and bin UI
 	private async Task FetchVideoInfoForAsset(MediaAsset asset)
 	{
+		Log.Print($"[DL] FetchVideoInfoForAsset: {asset.Path}");
 		try
 		{
 			var info = await _backendService.GetVideoInfo(asset.Path);
@@ -108,7 +109,7 @@ public partial class MainWindow
 	// Audio tracks, copy temp file to user://, start playback, fetch waveform.
 	private void LoadVideoAsset(MediaAsset asset)
 	{
-		Log.Print($"LoadVideoAsset: {asset.Name} ({asset.Path}), duration={asset.Duration:F1}s");
+		Log.Print($"[DL] LoadVideoAsset: {asset.Path}");
 		_videoPath = asset.Path;
 		_tracks = new List<TrackData>
 		{
@@ -141,6 +142,7 @@ public partial class MainWindow
 	// Fetch waveform peaks from backend and attach to audio clips only
 	private async Task LoadWaveform(MediaAsset asset)
 	{
+		Log.Print("[DL] LoadWaveform");
 		try
 		{
 			var wf = await _backendService.GetWaveform(asset.Path);
@@ -320,6 +322,7 @@ public partial class MainWindow
 
 	private async void OnDownloadPressed()
 	{
+		Log.Print("[UI] OnDownloadPressed");
 		var url = _urlInput.Text.Trim();
 		if (string.IsNullOrEmpty(url)) return;
 
@@ -374,6 +377,7 @@ public partial class MainWindow
 				SetStatus($"Found: {info.Title} (Long video — consider selecting a range)", Color.FromHtml("#D0570C"));
 			else
 				SetStatus($"Ready: {info.Title}", Color.FromHtml("#D0570C"));
+			this.LogSizes("OnDownloadPressed");
 		}
 		catch (Exception e)
 		{
@@ -427,6 +431,7 @@ public partial class MainWindow
 
 	private void OnSelectClips()
 	{
+		Log.Print("[UI] OnSelectClips");
 		if (_lastStreamInfo == null || _lastStreamInfo.Duration <= 0) return;
 
 		var picker = new ClipPickerWindow();
@@ -434,11 +439,13 @@ public partial class MainWindow
 		picker.Setup(_lastStreamInfo.Title, _lastStreamInfo.Duration, _lastStreamInfo.Thumbnail);
 		picker.DownloadRequested += (fragments) => ProcessDownloads(_lastStreamInfo.Url, fragments);
 		picker.PopupCentered();
+		this.LogSizes("OnSelectClips");
 	}
 
 	// AI clip finder: show setup dialog, download audio, transcribe, run LLM detection, auto-download clips
 	private void OnAIFindClips()
 	{
+		Log.Print("[UI] OnAIFindClips");
 		if (_lastStreamInfo == null || _lastStreamInfo.Duration <= 0) return;
 
 		var dialog = new AISetupDialog();
@@ -731,6 +738,7 @@ public partial class MainWindow
 	// Call backend to download YouTube fragments, add resulting clips to project bin
 	private async void ProcessDownloads(string url, Godot.Collections.Array<Godot.Collections.Dictionary> fragments)
 	{
+		Log.Print($"[DL] ProcessDownloads: {url}, {fragments.Count} fragments");
 		SwitchToState(ViewState.Layout);
 		SetStatus("Downloading fragments...", Colors.Cyan);
 

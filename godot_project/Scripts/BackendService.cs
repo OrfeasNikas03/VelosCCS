@@ -22,6 +22,8 @@ public class BackendService
 
     public async Task<VideoInfo> GetVideoInfo(string path)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.GetVideoInfo start");
         try
         {
             var psi = new ProcessStartInfo("ffprobe",
@@ -66,45 +68,120 @@ public class BackendService
                     duration = dur;
             }
 
-            return new VideoInfo { Width = width, Height = height, Duration = duration };
+            var result = new VideoInfo { Width = width, Height = height, Duration = duration };
+            Log.Print($"[DL] BackendService.GetVideoInfo done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
         }
-        catch
+        catch (Exception e)
         {
+            Log.Error($"[DL] BackendService.GetVideoInfo failed: {e.Message}");
             return new VideoInfo { Width = 1920, Height = 1080, Duration = 60 };
         }
     }
 
     public async Task<AudioWaveform?> GetWaveform(string path)
     {
-        return await Task.Run(() => AudioWaveform.Extract(path));
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.GetWaveform start");
+        try
+        {
+            var result = await Task.Run(() => AudioWaveform.Extract(path));
+            Log.Print($"[DL] BackendService.GetWaveform done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.GetWaveform failed: {e.Message}");
+            throw;
+        }
     }
 
     public StreamInfo GetYtInfo(string url)
     {
-        return Downloader.GetInfo(url);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.GetYtInfo start");
+        try
+        {
+            var result = Downloader.GetInfo(url);
+            Log.Print($"[DL] BackendService.GetYtInfo done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.GetYtInfo failed: {e.Message}");
+            throw;
+        }
     }
 
     public string DownloadVideo(string url, string outputDir)
     {
-        return Downloader.Download(url, outputDir);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.DownloadVideo start");
+        try
+        {
+            var result = Downloader.Download(url, outputDir);
+            Log.Print($"[DL] BackendService.DownloadVideo done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.DownloadVideo failed: {e.Message}");
+            throw;
+        }
     }
 
     public string DownloadSection(string url, double start, double duration, string outputPath)
     {
-        var sm = new StreamManager();
-        return sm.DownloadSection(url, start, duration, outputPath);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.DownloadSection start");
+        try
+        {
+            var sm = new StreamManager();
+            var result = sm.DownloadSection(url, start, duration, outputPath);
+            Log.Print($"[DL] BackendService.DownloadSection done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.DownloadSection failed: {e.Message}");
+            throw;
+        }
     }
 
     public (int x, int y, int w, int h) Reframe(string path, double start = 0, double duration = 30,
         string method = "center")
     {
-        return new Reframer(method).GetCropRect(path, start, duration);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.Reframe start");
+        try
+        {
+            var result = new Reframer(method).GetCropRect(path, start, duration);
+            Log.Print($"[DL] BackendService.Reframe done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.Reframe failed: {e.Message}");
+            throw;
+        }
     }
 
     public async Task<Transcript> TranscribeAsync(string path,
         string? language = null, IProgress<double>? progress = null)
     {
-        return await Transcriber.TranscribeAsync(path, language, progressCallback: null, progress: progress);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.TranscribeAsync start");
+        try
+        {
+            var result = await Transcriber.TranscribeAsync(path, language, progressCallback: null, progress: progress);
+            Log.Print($"[DL] BackendService.TranscribeAsync done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.TranscribeAsync failed: {e.Message}");
+            throw;
+        }
     }
 
     public async Task<Transcript> TranscribeChunkAsync(string path,
@@ -113,31 +190,71 @@ public class BackendService
         Action<string>? progressCallback = null,
         IProgress<double>? progress = null)
     {
-        return await Transcriber.TranscribeChunkAsync(path, startTime, endTime, language, progressCallback, progress);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.TranscribeChunkAsync start");
+        try
+        {
+            var result = await Transcriber.TranscribeChunkAsync(path, startTime, endTime, language, progressCallback, progress);
+            Log.Print($"[DL] BackendService.TranscribeChunkAsync done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.TranscribeChunkAsync failed: {e.Message}");
+            throw;
+        }
     }
 
     public List<(double start, double end)> DetectHighlights(List<Segment> segments)
     {
-        return new HighlightDetector().FindHighlights(segments);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.DetectHighlights start");
+        try
+        {
+            var result = new HighlightDetector().FindHighlights(segments);
+            Log.Print($"[DL] BackendService.DetectHighlights done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.DetectHighlights failed: {e.Message}");
+            throw;
+        }
     }
 
     public byte[] ExtractFrame(string path, double time, int width = 0, int height = 0)
     {
-        var psi = new ProcessStartInfo("ffmpeg",
-            $"-ss {time:F3} -i \"{path}\" -vframes 1 -f image2pipe -vcodec png -")
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print("[DL] BackendService.ExtractFrame start");
+        try
         {
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+            var psi = new ProcessStartInfo("ffmpeg",
+                $"-ss {time:F3} -i \"{path}\" -vframes 1 -f image2pipe -vcodec png -")
+            {
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
 
-        using var proc = Process.Start(psi);
-        if (proc == null) return Array.Empty<byte>();
+            using var proc = Process.Start(psi);
+            if (proc == null)
+            {
+                Log.Warn("[DL] BackendService.ExtractFrame: ffmpeg process null");
+                return Array.Empty<byte>();
+            }
 
-        using var ms = new MemoryStream();
-        proc.StandardOutput.BaseStream.CopyTo(ms);
-        proc.WaitForExit(10000);
-        return ms.ToArray();
+            using var ms = new MemoryStream();
+            proc.StandardOutput.BaseStream.CopyTo(ms);
+            proc.WaitForExit(10000);
+            var result = ms.ToArray();
+            Log.Print($"[DL] BackendService.ExtractFrame done in {sw.Elapsed.TotalSeconds:F1}s");
+            return result;
+        }
+        catch (Exception e)
+        {
+            Log.Error($"[DL] BackendService.ExtractFrame failed: {e.Message}");
+            throw;
+        }
     }
 
     public void Dispose()

@@ -19,6 +19,7 @@ public partial class ClipPickerWindow : Window
 
     public override void _Ready()
     {
+        Log.Print("[UI] ClipPickerWindow opened");
         Theme = AppTheme.Create();
         this.BounceIn();
     }
@@ -67,7 +68,7 @@ public partial class ClipPickerWindow : Window
 
         var btnRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         var addBtn = new Button { Text = "+ Add Another Range", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        addBtn.Pressed += AddRange;
+        addBtn.Pressed += () => { Log.Print("[UI] ClipPicker: Add range"); AddRange(); };
 
         var dlBtn = new Button
         {
@@ -75,7 +76,7 @@ public partial class ClipPickerWindow : Window
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             Modulate = Color.FromHtml("#D0570C"),
         };
-        dlBtn.Pressed += OnStartDownload;
+        dlBtn.Pressed += () => { Log.Print("[UI] ClipPicker: Download pressed"); OnStartDownload(); };
 
         btnRow.AddChild(addBtn);
         btnRow.AddChild(dlBtn);

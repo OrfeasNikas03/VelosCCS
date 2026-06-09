@@ -26,11 +26,11 @@ public partial class TestServer : Node
 		_server = new TcpServer();
 		if (_server.Listen(Port, "127.0.0.1") != Error.Ok)
 		{
-			GD.PrintErr("[TestServer] Failed to listen on port " + Port);
+			Log.Error("[TestServer] Failed to listen on port " + Port);
 			QueueFree();
 			return;
 		}
-		GD.Print($"[TestServer] Listening on 127.0.0.1:{Port}");
+		Log.Print($"[TestServer] Listening on 127.0.0.1:{Port}");
 		SetProcess(true);
 	}
 
@@ -43,7 +43,7 @@ public partial class TestServer : Node
 			var status = _client.GetStatus();
 			if (status == StreamPeerTcp.Status.None || status == StreamPeerTcp.Status.Error)
 			{
-				GD.Print("[TestServer] Client disconnected (status={status})");
+				Log.Print("[TestServer] Client disconnected (status={status})");
 				_client = null;
 				_buffer = "";
 			}
@@ -55,13 +55,13 @@ public partial class TestServer : Node
 			// Drop existing connection if any
 			if (_client != null)
 			{
-				GD.Print("[TestServer] Dropping old connection for new client");
+				Log.Print("[TestServer] Dropping old connection for new client");
 				_client = null;
 				_buffer = "";
 			}
 			_client = _server.TakeConnection();
 			_buffer = "";
-			GD.Print("[TestServer] Client connected");
+			Log.Print("[TestServer] Client connected");
 		}
 
 		if (_client == null) return;
@@ -69,7 +69,7 @@ public partial class TestServer : Node
 		// Check if client disconnected
 		if (_client.GetStatus() != StreamPeerTcp.Status.Connected)
 		{
-			GD.Print($"[TestServer] Client disconnected (status={_client.GetStatus()})");
+			Log.Print($"[TestServer] Client disconnected (status={_client.GetStatus()})");
 			_client = null;
 			_buffer = "";
 			return;
@@ -107,6 +107,7 @@ public partial class TestServer : Node
 			}
 			catch (Exception e)
 			{
+				Log.Error($"[TestServer] Parse error: {e.Message}");
 				SendResponse(new { ok = false, error = e.Message });
 			}
 		}
@@ -115,7 +116,7 @@ public partial class TestServer : Node
 	// Route command name to handler, send error for unknown commands
 	private void HandleCommand(string cmd, JsonElement pars)
 	{
-		GD.Print($"[TestServer] cmd={cmd}");
+		Log.Print($"[TestServer] cmd={cmd}");
 		switch (cmd)
 		{
 			case "ping":
@@ -203,6 +204,7 @@ public partial class TestServer : Node
 
 	private void HandleReset()
 	{
+		Log.Print("[TestServer] HandleReset");
 		var main = GetMain();
 		if (main == null) { SendResponse(new { ok = false, error = "No MainWindow" }); return; }
 		main.ResetProject();
@@ -216,6 +218,7 @@ public partial class TestServer : Node
 	// ── screenshot ───────────────────────────────────────────────────────────
 	private void TakeScreenshot()
 	{
+		Log.Print("[TestServer] TakeScreenshot");
 		var img = GetViewport().GetTexture().GetImage();
 		img.SavePng("user://test_screenshot.png");
 		string globalPath = ProjectSettings.GlobalizePath("user://test_screenshot.png");
@@ -225,11 +228,13 @@ public partial class TestServer : Node
 	// ── import_file ──────────────────────────────────────────────────────────
 	private void HandleImportFile(JsonElement pars)
 	{
-		var main = GetMain();
-		if (main == null) { SendResponse(new { ok = false, error = "No MainWindow" }); return; }
 		string? filePath = pars.TryGetProperty("path", out var p) ? p.GetString() : null;
+		Log.Print($"[TestServer] HandleImportFile path={filePath}");
+		var main = GetMain();
+		if (main == null) { Log.Error("[TestServer] HandleImportFile: No MainWindow"); SendResponse(new { ok = false, error = "No MainWindow" }); return; }
 		if (string.IsNullOrEmpty(filePath))
 		{
+			Log.Warn("[TestServer] HandleImportFile: Missing path");
 			SendResponse(new { ok = false, error = "Missing path" });
 			return;
 		}
@@ -283,7 +288,7 @@ public partial class TestServer : Node
 			return;
 		}
 
-		GD.Print($"[TestServer] call: {method}");
+		Log.Print($"[TestServer] call: {method}");
 		main.CallAction(method);
 		SendResponse(new { ok = true });
 	}
@@ -292,8 +297,10 @@ public partial class TestServer : Node
 	private void HandleClickButton(JsonElement pars)
 	{
 		string? text = pars.TryGetProperty("text", out var t) ? t.GetString() : null;
+		Log.Print($"[TestServer] HandleClickButton text={text}");
 		if (string.IsNullOrEmpty(text))
 		{
+			Log.Warn("[TestServer] HandleClickButton: Missing text");
 			SendResponse(new { ok = false, error = "Missing text" });
 			return;
 		}
@@ -301,11 +308,13 @@ public partial class TestServer : Node
 		var button = FindButton(GetTree().Root, text);
 		if (button != null)
 		{
+			Log.Print($"[TestServer] HandleClickButton found '{text}'");
 			button.EmitSignal(BaseButton.SignalName.Pressed);
 			// Process any pending events
 			awaitTo(0.1f, () => SendResponse(new { ok = true, result = $"clicked '{text}'" }));
 			return;
 		}
+		Log.Warn($"[TestServer] HandleClickButton: '{text}' not found");
 		SendResponse(new { ok = false, error = $"Button '{text}' not found" });
 	}
 
@@ -435,6 +444,7 @@ public partial class TestServer : Node
 	// ── export_and_wait ───────────────────────────────────────────────────────
 	private async void HandleExportAndWait()
 	{
+		Log.Print("[TestServer] HandleExportAndWait");
 		var main = GetMain();
 		if (main == null) { SendResponse(new { ok = false, error = "No MainWindow" }); return; }
 
@@ -453,6 +463,7 @@ public partial class TestServer : Node
 				return;
 			}
 		}
+		Log.Error("[TestServer] Export timed out after 120s");
 		SendResponse(new { ok = false, error = "Export timed out after 120s" });
 	}
 
@@ -476,7 +487,11 @@ public partial class TestServer : Node
 				proc.WaitForExit(5000);
 				return output.Trim();
 			}
-			catch { return ""; }
+			catch (Exception e)
+			{
+				Log.Warn($"[TestServer] RunAndCapture({exe}) failed: {e.Message}");
+				return "";
+			}
 		}
 
 		string ffmpegVer = "";
@@ -528,8 +543,9 @@ public partial class TestServer : Node
 				proc.WaitForExit(3000);
 			}
 		}
-		catch
+		catch (Exception e)
 		{
+			Log.Warn($"[TestServer] which ffmpeg failed ({e.Message}), trying where...");
 			try
 			{
 				var psi = new ProcessStartInfo("where", "ffmpeg")
@@ -545,7 +561,11 @@ public partial class TestServer : Node
 					proc.WaitForExit(3000);
 				}
 			}
-			catch { ffmpegPath = "not found"; }
+			catch (Exception e2)
+			{
+				Log.Warn($"[TestServer] where ffmpeg also failed: {e2.Message}");
+				ffmpegPath = "not found";
+			}
 		}
 
 		SendResponse(new { ok = true, result = new

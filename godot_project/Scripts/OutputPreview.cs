@@ -620,7 +620,7 @@ public partial class OutputPreview : VBoxContainer
 					}
 					catch (Exception e)
 					{
-						GD.PrintErr($"[OutputPreview] Font load failed: {e.Message}");
+						Log.Error($"[OutputPreview] Font load failed: {e.Message}");
 					}
 				}
 			}
@@ -769,7 +769,7 @@ public partial class OutputPreview : VBoxContainer
 					}
 					catch (Exception ex)
 					{
-						GD.PrintErr($"[OutputPreview] Failed to load font: {clip.FontPath} - {ex.Message}");
+						Log.Error($"[OutputPreview] Failed to load font: {clip.FontPath} - {ex.Message}");
 					}
 				}
 

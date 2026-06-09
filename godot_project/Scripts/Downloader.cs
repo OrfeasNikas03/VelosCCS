@@ -24,48 +24,63 @@ public class Downloader
 
     public string Download(string url, string outputDir)
     {
-        Directory.CreateDirectory(outputDir);
-
-        string ytDlp = FindYtDlp();
-        string args = $"--format \"bestvideo[height<=1080]+bestaudio/best[height<=1080]\" " +
-                      $"--format-sort \"vcodec:avc1,res,codec\" " +
-                      $"--merge-output-format mp4 " +
-                      $"--output \"{outputDir}/%(title)s.%(ext)s\" " +
-                      $"--no-quiet -- {url}";
-
-        var psi = new ProcessStartInfo(ytDlp, args)
+        Log.Print($"[DL] Downloader.Download start: {url}");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+            Directory.CreateDirectory(outputDir);
 
-        using var proc = Process.Start(psi);
-        if (proc == null)
-            throw new InvalidOperationException($"Failed to start {ytDlp}");
+            string ytDlp = FindYtDlp();
+            string args = $"--format \"bestvideo[height<=1080]+bestaudio/best[height<=1080]\" " +
+                          $"--format-sort \"vcodec:avc1,res,codec\" " +
+                          $"--merge-output-format mp4 " +
+                          $"--output \"{outputDir}/%(title)s.%(ext)s\" " +
+                          $"--no-quiet -- {url}";
 
-        string output = proc.StandardOutput.ReadToEnd();
-        string error = proc.StandardError.ReadToEnd();
-        proc.WaitForExit();
+            var psi = new ProcessStartInfo(ytDlp, args)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
 
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException($"yt-dlp failed (exit {proc.ExitCode}): {error}");
+            using var proc = Process.Start(psi);
+            if (proc == null)
+                throw new InvalidOperationException($"Failed to start {ytDlp}");
 
-        // Find the output file(s) in the directory
-        var videoExts = new[] { ".mp4", ".mkv", ".webm", ".mov" };
-        foreach (var ext in videoExts)
-        {
-            var files = Directory.GetFiles(outputDir, $"*{ext}");
-            if (files.Length > 0)
-                return files[0];
+            string output = proc.StandardOutput.ReadToEnd();
+            string error = proc.StandardError.ReadToEnd();
+            proc.WaitForExit();
+
+            if (proc.ExitCode != 0)
+                throw new InvalidOperationException($"yt-dlp failed (exit {proc.ExitCode}): {error}");
+
+            // Find the output file(s) in the directory
+            var videoExts = new[] { ".mp4", ".mkv", ".webm", ".mov" };
+            foreach (var ext in videoExts)
+            {
+                var files = Directory.GetFiles(outputDir, $"*{ext}");
+                if (files.Length > 0)
+                {
+                    Log.Print($"[DL] Downloader.Download done in {sw.Elapsed.TotalSeconds:F1}s");
+                    return files[0];
+                }
+            }
+
+            throw new InvalidOperationException("yt-dlp completed but output file not found");
         }
-
-        throw new InvalidOperationException("yt-dlp completed but output file not found");
+        catch (Exception e)
+        {
+            Log.Error($"[DL] Downloader.Download failed: {e.Message}");
+            throw;
+        }
     }
 
     public StreamInfo GetInfo(string url)
     {
+        Log.Print($"[DL] Downloader.GetInfo: {url}");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         string ytDlp = FindYtDlp();
         string args = $"--dump-json -- {url}";
 
@@ -90,7 +105,7 @@ public class Downloader
 
         using var doc = JsonDocument.Parse(output);
         var root = doc.RootElement;
-        return new StreamInfo
+        var info = new StreamInfo
         {
             Url = url,
             Title = root.TryGetProperty("title", out var t) ? t.GetString() ?? "Untitled" : "Untitled",
@@ -98,5 +113,7 @@ public class Downloader
             WebpageUrl = root.TryGetProperty("webpage_url", out var w) ? w.GetString() ?? url : url,
             Uploader = root.TryGetProperty("uploader", out var u) ? u.GetString() ?? "" : "",
         };
+        Log.Print($"[DL] Downloader.GetInfo done in {sw.Elapsed.TotalSeconds:F1}s");
+        return info;
     }
 }

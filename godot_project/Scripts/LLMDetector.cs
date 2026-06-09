@@ -42,14 +42,14 @@ public class LLMHighlightDetector
         }
         catch (Exception e)
         {
-            GD.Print($"[LLM] LlamaWorker failed: {e.Message} — trying Ollama fallback...");
+            Log.Print($"[LLMDetect] LlamaWorker failed: {e.Message} — trying Ollama fallback...");
             progressCallback?.Invoke("LlamaWorker failed, trying Ollama...");
             clips = await TryQueryOllamaFallbackAsync(prompt, maxClips, progressCallback);
         }
 
-        GD.Print($"[LLM] baseTime={baseTime:F1}s windowDur={windowDuration:F1}s segs={segments.Count} chars={prompt.Length}");
+        Log.Print($"[LLMDetect] baseTime={baseTime:F1}s windowDur={windowDuration:F1}s segs={segments.Count} chars={prompt.Length}");
         if (clips.Count > 0)
-            GD.Print($"[LLM] LLM returned {clips.Count} raw: [{string.Join(", ", clips.Select(c => $"({c.start:F1},{c.end:F1})"))}]");
+            Log.Print($"[LLMDetect] LLM returned {clips.Count} raw: [{string.Join(", ", clips.Select(c => $"({c.start:F1},{c.end:F1})"))}]");
 
         var valid = new List<(double start, double end)>();
         foreach (var (relStart, relEnd) in clips)
@@ -60,20 +60,20 @@ public class LLMHighlightDetector
             double dur = e - s;
             if (dur < minDuration * 0.5)
             {
-                GD.Print($"[LLM]  reject ({s:F1},{e:F1}) dur={dur:F1}s < {minDuration * 0.5:F0}s minimum");
+                Log.Print($"[LLMDetect]  reject ({s:F1},{e:F1}) dur={dur:F1}s < {minDuration * 0.5:F0}s minimum");
                 continue;
             }
             if (valid.Any(v => !(e <= v.start || s >= v.end)))
             {
-                GD.Print($"[LLM]  reject ({s:F1},{e:F1}) overlaps existing");
+                Log.Print($"[LLMDetect]  reject ({s:F1},{e:F1}) overlaps existing");
                 continue;
             }
             valid.Add((s, e));
-            GD.Print($"[LLM]  accept ({s:F1},{e:F1}) dur={dur:F1}s");
+            Log.Print($"[LLMDetect]  accept ({s:F1},{e:F1}) dur={dur:F1}s");
         }
 
         if (valid.Count == 0)
-            GD.Print($"[LLM] FindHighlights: no valid clips after filtering ({clips.Count} from LLM)");
+            Log.Print($"[LLMDetect] FindHighlights: no valid clips after filtering ({clips.Count} from LLM)");
 
         return valid;
     }
@@ -105,7 +105,7 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
         {
             int step = (int)Math.Ceiling((double)segments.Count / maxSegments);
             sampled = segments.Where((_, i) => i % step == 0).ToList();
-            GD.Print($"[LLM] SegmentsToText: {segments.Count} → sampled {sampled.Count} (step={step})");
+            Log.Print($"[LLMDetect] SegmentsToText: {segments.Count} → sampled {sampled.Count} (step={step})");
         }
         var lines = new List<string>();
         foreach (var s in sampled)
@@ -122,7 +122,7 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
         string cliPath = LlamaManager.FindCliBinary();
         if (string.IsNullOrEmpty(cliPath))
         {
-            GD.PrintErr("[LLM] llama-cli binary not found");
+            Log.Error("[LLMDetect] llama-cli binary not found");
             throw new InvalidOperationException("llama-cli not found — run setup first");
         }
 
@@ -145,11 +145,11 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
         {
             await System.IO.File.WriteAllTextAsync(tmpPrompt, prompt);
 
-            GD.Print($"[LLM] Starting llama-cli directly: model={Path.GetFileName(modelPath)} prompt_len={prompt.Length}");
+            Log.Print($"[LLMDetect] Starting llama-cli directly: model={Path.GetFileName(modelPath)} prompt_len={prompt.Length}");
 
             int cpuThreads = Math.Clamp(System.Environment.ProcessorCount, 1, 16);
             string cliArgs = $"-ngl -1 -m \"{modelPath}\" -f \"{tmpPrompt}\" --no-display-prompt --single-turn -n 1024 --temp 0.1 -t {cpuThreads}";
-            GD.Print($"[LLM] args: {cliArgs}");
+            Log.Print($"[LLMDetect] args: {cliArgs}");
 
             var psi = new ProcessStartInfo(cliPath, cliArgs)
             {
@@ -165,7 +165,7 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
                 string ldPath = workerDir +
                     (existingLdPath.Length > 0 ? ":" + existingLdPath : "");
                 psi.EnvironmentVariables["LD_LIBRARY_PATH"] = ldPath;
-                GD.Print($"[LLM] LD_LIBRARY_PATH={ldPath}");
+                Log.Print($"[LLMDetect] LD_LIBRARY_PATH={ldPath}");
             }
 
             using var proc = Process.Start(psi);
@@ -192,28 +192,28 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
 
             if (!string.IsNullOrWhiteSpace(stderr))
                 foreach (string line in stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                    GD.Print($"[llama-cli] {line.Trim()}");
+                    Log.Print($"[llama-cli] {line.Trim()}");
 
             proc.WaitForExit(5000);
             sw.Stop();
-            GD.Print($"[LLM] llama-cli exited {proc.ExitCode} in {sw.Elapsed.TotalSeconds:F1}s (stdout={stdout.Length} chars)");
+            Log.Print($"[LLMDetect] llama-cli exited {proc.ExitCode} in {sw.Elapsed.TotalSeconds:F1}s (stdout={stdout.Length} chars)");
 
             // Check for model corruption and re-download + retry once
             if (proc.ExitCode != 0 && (stderr.Contains("corrupted") || stderr.Contains("not within the file bounds")))
             {
-                GD.Print($"[LLM] Model corrupted at {modelPath}, re-downloading...");
+                Log.Print($"[LLMDetect] Model corrupted at {modelPath}, re-downloading...");
                 progressCallback?.Invoke("Model corrupted, re-downloading...");
                 try { System.IO.File.Delete(modelPath); } catch { }
                 bool downloaded = await LlamaManager.EnsureModelDownloadedAsync(progressCallback: progressCallback);
                 if (!downloaded)
                     throw new InvalidOperationException("Failed to re-download model");
-                GD.Print($"[LLM] Retrying with re-downloaded model...");
+                Log.Print($"[LLMDetect] Retrying with re-downloaded model...");
                 return await QueryLlamaWorkerAsync(prompt, maxClips, progressCallback);
             }
 
             if (proc.ExitCode != 0 || string.IsNullOrWhiteSpace(stdout))
             {
-                GD.PrintErr($"[LLM] llama-cli failed (exit={proc.ExitCode}): {stdout?[..Math.Min(stdout.Length, 500)]}");
+                Log.Error($"[LLMDetect] llama-cli failed (exit={proc.ExitCode}): {stdout?[..Math.Min(stdout.Length, 500)]}");
                 throw new InvalidOperationException($"llama-cli failed with exit code {proc.ExitCode}");
             }
 
@@ -229,9 +229,9 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
             if (string.IsNullOrWhiteSpace(text))
                 text = stdout.Trim();
 
-        GD.Print($"[LLM] response ({sw.Elapsed.TotalSeconds:F1}s, {text.Length} chars): {text[..Math.Min(text.Length, 500)]}");
+        Log.Print($"[LLMDetect] response ({sw.Elapsed.TotalSeconds:F1}s, {text.Length} chars): {text[..Math.Min(text.Length, 500)]}");
         if (text.Length > 500)
-            GD.Print($"[LLM] ... (truncated, total {text.Length} chars)");
+            Log.Print($"[LLMDetect] ... (truncated, total {text.Length} chars)");
 
         return ParseResponse(text, maxClips);
         }
@@ -271,13 +271,13 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
         }
         catch (Exception ex)
         {
-            GD.Print($"[LLM] ParseResponse: JSON parse failed: {ex.Message} — trying regex fallback");
+            Log.Print($"[LLMDetect] ParseResponse: JSON parse failed: {ex.Message} — trying regex fallback");
             return FallbackParseRegex(json, maxClips);
         }
 
         if (items.ValueKind != JsonValueKind.Array)
         {
-            GD.Print($"[LLM] ParseResponse: root is not array, got {items.ValueKind}");
+            Log.Print($"[LLMDetect] ParseResponse: root is not array, got {items.ValueKind}");
             return new();
         }
 
@@ -291,7 +291,7 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
         }
 
         if (clips.Count == 0)
-            GD.Print($"[LLM] ParseResponse: array has {items.GetArrayLength()} items, but none had valid start/end numbers");
+            Log.Print($"[LLMDetect] ParseResponse: array has {items.GetArrayLength()} items, but none had valid start/end numbers");
 
         return clips.Take(maxClips).ToList();
     }
@@ -311,9 +311,9 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
             }
         }
         if (clips.Count > 0)
-            GD.Print($"[LLM] FallbackParseRegex: extracted {clips.Count} clips");
+            Log.Print($"[LLMDetect] FallbackParseRegex: extracted {clips.Count} clips");
         else
-            GD.Print($"[LLM] FallbackParseRegex: no clips found. Starts: \"{text[..Math.Min(text.Length, 200)]}\"");
+            Log.Print($"[LLMDetect] FallbackParseRegex: no clips found. Starts: \"{text[..Math.Min(text.Length, 200)]}\"");
         return clips.Take(maxClips).ToList();
     }
 
@@ -343,14 +343,14 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
     {
         if (!await IsOllamaRunningAsync())
         {
-            GD.Print("[LLM] Ollama not running — no fallback available");
+            Log.Print("[LLMDetect] Ollama not running — no fallback available");
             progressCallback?.Invoke("AI detection failed: no LLM backend available");
             return new();
         }
 
         string model = OllamaFallbackModel();
         progressCallback?.Invoke($"Using Ollama ({model})...");
-        GD.Print($"[LLM] Ollama fallback with model={model}");
+        Log.Print($"[LLMDetect] Ollama fallback with model={model}");
 
         var payload = new
         {
@@ -370,7 +370,7 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
 
         if (!response.IsSuccessStatusCode)
         {
-            GD.PrintErr($"[LLM] Ollama returned {response.StatusCode}: {responseText[..Math.Min(responseText.Length, 500)]}");
+            Log.Error($"[LLMDetect] Ollama returned {response.StatusCode}: {responseText[..Math.Min(responseText.Length, 500)]}");
             progressCallback?.Invoke("Ollama fallback failed");
             return new();
         }
@@ -379,9 +379,9 @@ No markdown, no explanation. Only valid JSON. Example for {maxClips}x {minDur}s 
         string text = doc.RootElement.TryGetProperty("response", out var r)
             ? r.GetString() ?? "" : "";
 
-        GD.Print($"[LLM] Ollama fallback ({sw.Elapsed.TotalSeconds:F1}s, {text.Length} chars): {text[..Math.Min(text.Length, 500)]}");
+        Log.Print($"[LLMDetect] Ollama fallback ({sw.Elapsed.TotalSeconds:F1}s, {text.Length} chars): {text[..Math.Min(text.Length, 500)]}");
         if (text.Length > 500)
-            GD.Print($"[LLM] ... (truncated, total {text.Length} chars)");
+            Log.Print($"[LLMDetect] ... (truncated, total {text.Length} chars)");
 
         return ParseResponse(text, maxClips);
     }

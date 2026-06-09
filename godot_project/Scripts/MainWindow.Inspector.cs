@@ -48,6 +48,7 @@ public partial class MainWindow
 			if (isSelected) btn.Modulate = new Color(0.345f, 0.651f, 1.0f); // blue highlight
 			btn.Pressed += () =>
 			{
+				Log.Print($"[UI] Button: Aspect {r}");
 				GD.Print($"[Inspector] Aspect ratio clicked: {r}");
 				_outputPreview.SetAspectRatio(r);
 				ExportAspectRatio = r;
@@ -82,7 +83,7 @@ public partial class MainWindow
 			var btn = new Button { Text = p.Item1, TooltipText = p.Item2, CustomMinimumSize = new Vector2(0, 44) };
 			bool isSelected = _currentLayoutPreset == p.Item1;
 			if (isSelected) btn.Modulate = new Color(0.345f, 0.651f, 1.0f);
-			btn.Pressed += () => { ApplyLayoutPreset(p.Item1); _currentLayoutPreset = p.Item1; RebuildInspector(); };
+			btn.Pressed += () => { Log.Print($"[UI] Button: Template {p.Item1}"); ApplyLayoutPreset(p.Item1); _currentLayoutPreset = p.Item1; RebuildInspector(); };
 			_inspectorList.AddChild(btn);
 		}
 
@@ -113,7 +114,7 @@ public partial class MainWindow
 
 		_inspectorList.AddChild(new HSeparator());
 		var autoFrameBtn = new Button { Text = "Auto-frame (Face Detect)", CustomMinimumSize = new Vector2(0, 44) };
-		autoFrameBtn.Pressed += OnAutoFrame;
+		autoFrameBtn.Pressed += () => { Log.Print("[UI] Button: Auto-frame"); OnAutoFrame(); };
 		_inspectorList.AddChild(autoFrameBtn);
 
 	}
@@ -238,6 +239,7 @@ public partial class MainWindow
 		};
 		txKfBtn.Pressed += () =>
 		{
+			Log.Print("[UI] Button: Text keyframe");
 			SnapshotState();
 			double lt = _timeline.SelectionPos - clip.Start;
 			int idx = clip.TextKeyframes.FindIndex(k => Math.Abs(k.Time - lt) < 0.01);
@@ -274,7 +276,7 @@ public partial class MainWindow
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			CustomMinimumSize = new Vector2(0, 30),
 		};
-		fontBtn.Pressed += () => OpenFontBrowserWindow();
+		fontBtn.Pressed += () => { Log.Print("[UI] Button: Font select"); OpenFontBrowserWindow(); };
 		textGrid.AddChild(fontBtn);
 
 		textGrid.AddChild(new Label { Text = "Color" });
@@ -320,8 +322,10 @@ public partial class MainWindow
 			Flat = true,
 			CustomMinimumSize = new Vector2(22, 30),
 		};
+		string capturedLabel = label;
 		resetBtn.Pressed += () =>
 		{
+			Log.Print($"[UI] Button: Reset {capturedLabel}");
 			spin.Value = initial;
 			onChanged(initial);
 		};
@@ -336,6 +340,7 @@ public partial class MainWindow
 			};
 			kfBtn.Pressed += () =>
 			{
+				Log.Print($"[UI] Button: Keyframe toggle {capturedLabel}");
 				double lt = _timeline.SelectionPos - clipStart;
 				bool hasKf = animProp.IsAnimated && animProp.Keyframes.Any(k => Math.Abs(k.Time - lt) < 0.01);
 				if (hasKf)

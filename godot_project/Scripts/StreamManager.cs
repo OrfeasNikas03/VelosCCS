@@ -57,7 +57,7 @@ public class StreamManager
 
         using var doc = JsonDocument.Parse(output);
         var root = doc.RootElement;
-		return new StreamInfo
+		var info = new StreamInfo
 		{
 			Url = url,
 			Title = root.TryGetProperty("title", out var t) ? t.GetString() ?? "Untitled" : "Untitled",
@@ -66,10 +66,14 @@ public class StreamManager
 			Uploader = root.TryGetProperty("uploader", out var u) ? u.GetString() ?? "" : "",
 			Thumbnail = root.TryGetProperty("thumbnail", out var th) ? th.GetString() ?? "" : "",
 		};
+		Log.Print($"[DL] GetInfo done: title={info.Title}, duration={info.Duration:F0}s");
+		return info;
     }
 
     public string DownloadAudio(string url, string outputPath)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print($"[DL] DownloadAudio start: {url}");
         string ext = "opus";
         string path = Path.ChangeExtension(outputPath, ext);
         if (File.Exists(path)) { Log.Print($"StreamManager.DownloadAudio: cached at {path}"); return path; }
@@ -91,55 +95,68 @@ public class StreamManager
         if (proc.ExitCode != 0)
             throw new InvalidOperationException($"yt-dlp audio download failed (exit {proc.ExitCode}): {stderr.Trim()}");
 
+        Log.Print($"[DL] DownloadAudio done: {System.IO.Path.GetFileName(path)} in {sw.Elapsed.TotalSeconds:F1}s");
         return path;
     }
 
     public string DownloadAudioWithProgress(string url, string outputPath, DownloadProgressCallback? onProgress)
     {
-        string ext = "opus";
-        string path = Path.ChangeExtension(outputPath, ext);
-        if (File.Exists(path))
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print($"[DL] DownloadAudioWithProgress start: {url}");
+        try
         {
-            onProgress?.Invoke("100", "cached", "0s");
+            string ext = "opus";
+            string path = Path.ChangeExtension(outputPath, ext);
+            if (File.Exists(path))
+            {
+                onProgress?.Invoke("100", "cached", "0s");
+                Log.Print($"[DL] DownloadAudioWithProgress: cached {System.IO.Path.GetFileName(path)}");
+                return path;
+            }
+
+            string ytDlp = FindYtDlp();
+            var stderrBuf = new System.Text.StringBuilder();
+
+            var psi = new ProcessStartInfo(ytDlp,
+                $"-f bestaudio -o \"{path}\" --newline --no-playlist {url}")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            using var proc = new Process { StartInfo = psi };
+            proc.OutputDataReceived += (s, e) =>
+            {
+                if (string.IsNullOrEmpty(e.Data)) return;
+                var match = Regex.Match(e.Data, @"\[download\]\s+(?<pct>[\d\.]+)% of.*?at\s+(?<spd>.*?)\s+ETA\s+(?<eta>.*)");
+                if (match.Success)
+                {
+                    onProgress?.Invoke(match.Groups["pct"].Value, match.Groups["spd"].Value, match.Groups["eta"].Value);
+                }
+            };
+            proc.ErrorDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    stderrBuf.AppendLine(e.Data);
+            };
+
+            proc.Start();
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
+            proc.WaitForExit();
+            if (proc.ExitCode != 0)
+                throw new InvalidOperationException($"yt-dlp audio download failed (exit {proc.ExitCode}): {stderrBuf.ToString().Trim()}");
+
+            Log.Print($"[DL] DownloadAudioWithProgress done: {System.IO.Path.GetFileName(outputPath)} in {sw.Elapsed.TotalSeconds:F1}s");
             return path;
         }
-
-        string ytDlp = FindYtDlp();
-        var stderrBuf = new System.Text.StringBuilder();
-
-        var psi = new ProcessStartInfo(ytDlp,
-            $"-f bestaudio -o \"{path}\" --newline --no-playlist {url}")
+        catch (Exception e)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        using var proc = new Process { StartInfo = psi };
-        proc.OutputDataReceived += (s, e) =>
-        {
-            if (string.IsNullOrEmpty(e.Data)) return;
-            var match = Regex.Match(e.Data, @"\[download\]\s+(?<pct>[\d\.]+)% of.*?at\s+(?<spd>.*?)\s+ETA\s+(?<eta>.*)");
-            if (match.Success)
-            {
-                onProgress?.Invoke(match.Groups["pct"].Value, match.Groups["spd"].Value, match.Groups["eta"].Value);
-            }
-        };
-        proc.ErrorDataReceived += (s, e) =>
-        {
-            if (!string.IsNullOrEmpty(e.Data))
-                stderrBuf.AppendLine(e.Data);
-        };
-
-        proc.Start();
-        proc.BeginOutputReadLine();
-        proc.BeginErrorReadLine();
-        proc.WaitForExit();
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException($"yt-dlp audio download failed (exit {proc.ExitCode}): {stderrBuf.ToString().Trim()}");
-
-        return path;
+            Log.Error($"[DL] DownloadAudioWithProgress failed: {e.Message}");
+            throw;
+        }
     }
 
     private static readonly string[] FormatFallbacks =
@@ -152,6 +169,8 @@ public class StreamManager
 
     public string DownloadSection(string url, double start, double duration, string outputPath)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print($"[DL] DownloadSection start: {url} [{FormatTime(start)}-{FormatTime(start+duration)}]");
         string ytDlp = FindYtDlp();
         string fmtStart = FormatTime(start);
         string fmtEnd = FormatTime(start + duration);
@@ -175,7 +194,10 @@ public class StreamManager
             string stderr = proc.StandardError.ReadToEnd();
             proc.WaitForExit();
             if (proc.ExitCode == 0)
+            {
+                Log.Print($"[DL] DownloadSection done: {System.IO.Path.GetFileName(outputPath)} in {sw.Elapsed.TotalSeconds:F1}s");
                 return outputPath;
+            }
             errors.Add($"format '{fmt}' failed: {stderr.Trim()}");
         }
         throw new InvalidOperationException($"yt-dlp section download failed: {string.Join("; ", errors)}");
@@ -185,6 +207,8 @@ public class StreamManager
 
     public async Task<string> DownloadSectionWithProgressAsync(string url, double start, double duration, string outputPath, DownloadProgressCallback? onProgress)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Log.Print($"[DL] DownloadSectionWithProgress start: {url} [{FormatTime(start)}-{FormatTime(start+duration)}]");
         string ytDlp = FindYtDlp();
         string fmtStart = FormatTime(start);
         string fmtEnd = FormatTime(start + duration);
@@ -226,7 +250,10 @@ public class StreamManager
             proc.BeginErrorReadLine();
             await proc.WaitForExitAsync().ConfigureAwait(false);
             if (proc.ExitCode == 0)
+            {
+                Log.Print($"[DL] DownloadSectionWithProgress done: {System.IO.Path.GetFileName(outputPath)} in {sw.Elapsed.TotalSeconds:F1}s");
                 return outputPath;
+            }
             errors.Add($"format '{fmt}' failed: {stderrBuf.ToString().Trim()}");
         }
         throw new InvalidOperationException($"yt-dlp section download failed: {string.Join("; ", errors)}");

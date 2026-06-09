@@ -31,22 +31,22 @@ public class Transcriber : IDisposable
 
 		// Candidate 0: project root via res:// (works in editor)
 		string c0 = ProjectSettings.GlobalizePath("res://WhisperWorker_published/" + worker);
-		if (System.IO.File.Exists(c0)) { _workerPath = c0; GD.Print($"[Transcriber] Found {c0}"); return _workerPath; }
+		if (System.IO.File.Exists(c0)) { _workerPath = c0; Log.Print($"[Transcriber] Found {c0}"); return _workerPath; }
 
 		// Candidate 1: alongside the executable (exported app)
 		string c1 = System.IO.Path.Combine(baseDir, "WhisperWorker_published", worker);
-        if (System.IO.File.Exists(c1)) { _workerPath = c1; GD.Print($"[Transcriber] Found {c1}"); return _workerPath; }
+        if (System.IO.File.Exists(c1)) { _workerPath = c1; Log.Print($"[Transcriber] Found {c1}"); return _workerPath; }
 
         // Candidate 2: same directory as executable (flat layout)
         string c2 = System.IO.Path.Combine(baseDir, worker);
-        if (System.IO.File.Exists(c2)) { _workerPath = c2; GD.Print($"[Transcriber] Found {c2}"); return _workerPath; }
+        if (System.IO.File.Exists(c2)) { _workerPath = c2; Log.Print($"[Transcriber] Found {c2}"); return _workerPath; }
 
         // Candidate 3: one level up from baseDir (when running from data_* subdir)
         string c3 = System.IO.Path.Combine(baseDir, "..", "WhisperWorker_published", worker);
-        if (System.IO.File.Exists(c3)) { _workerPath = c3; GD.Print($"[Transcriber] Found {c3}"); return _workerPath; }
+        if (System.IO.File.Exists(c3)) { _workerPath = c3; Log.Print($"[Transcriber] Found {c3}"); return _workerPath; }
 
         _workerPath = "";
-        GD.Print("[Transcriber] WhisperWorker not found — falling back to in-process whisper");
+        Log.Print("[Transcriber] WhisperWorker not found — falling back to in-process whisper");
         return "";
     }
 
@@ -84,11 +84,13 @@ public class Transcriber : IDisposable
 
     public async Task LoadModelAsync(Action<string>? progressCallback = null)
     {
+        Log.Print("[Transcriber] LoadModelAsync started");
         if (_factory != null) return;
         await EnsureModelDownloadedAsync(progressCallback);
 
         progressCallback?.Invoke("Loading transcription model...");
         _factory = WhisperFactory.FromPath(GetModelPath());
+        Log.Print("[Transcriber] LoadModelAsync completed");
     }
 
     public void UnloadModel()
@@ -103,8 +105,10 @@ public class Transcriber : IDisposable
         Action<string>? progressCallback = null,
         IProgress<double>? progress = null)
     {
+        Log.Print("[Transcriber] Transcribe started");
         string lang = language ?? AppConfig.CaptionLanguage;
         string worker = FindWorkerBinary();
+        Log.Print("[Transcriber] Transcribe completed");
         if (string.IsNullOrEmpty(worker))
             return await TranscribeInProcessAsync(audioPath, startTime, endTime, lang, progressCallback, progress);
 
@@ -164,7 +168,7 @@ public class Transcriber : IDisposable
             // Log worker diagnostics from stderr
             if (!string.IsNullOrWhiteSpace(stderr))
                 foreach (string line in stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                    GD.Print($"[Worker] {line.Trim()}");
+                    Log.Print($"[Worker] {line.Trim()}");
 
             bool exited = proc.WaitForExit((int)TimeSpan.FromMinutes(10).TotalMilliseconds);
             if (!exited)
@@ -181,7 +185,7 @@ public class Transcriber : IDisposable
             }
             else if (proc.ExitCode != 0)
             {
-                GD.PrintErr($"[Transcriber] WhisperWorker exit {proc.ExitCode} at {label}: {stderr}");
+                Log.Error($"[Transcriber] WhisperWorker exit {proc.ExitCode} at {label}: {stderr}");
                 if (proc.ExitCode != 1)
                     progressCallback?.Invoke($"Whisper crashed — no transcript for {label}");
 
@@ -189,7 +193,7 @@ public class Transcriber : IDisposable
                 if (runtime == "vulkan" && (stderr.Contains("OutOfDeviceMemory") || stderr.Contains("out of memory")))
                 {
                     _vulkanExhausted = true;
-                    GD.Print("[Transcriber] Vulkan OOM detected — falling back to CPU whisper for remaining windows");
+                    Log.Print("[Transcriber] Vulkan OOM detected — falling back to CPU whisper for remaining windows");
                     progressCallback?.Invoke("GPU out of memory — switching to CPU whisper");
                 }
             }
@@ -244,7 +248,7 @@ public class Transcriber : IDisposable
         }
         catch (Exception ex)
         {
-            GD.PrintErr($"[Transcriber] Failed to parse worker JSON: {ex.Message}");
+            Log.Error($"[Transcriber] Failed to parse worker JSON: {ex.Message}");
         }
         return segments;
     }
@@ -330,41 +334,77 @@ public class Transcriber : IDisposable
 
     private static void ExtractWavToFile(string audioPath, double startTime, double duration, string outPath)
     {
+        Log.Print($"[Transcriber] ExtractWavToFile: {audioPath} start={startTime:F3} dur={duration:F3} -> {outPath}");
         var psi = new ProcessStartInfo("ffmpeg",
             $"-ss {startTime:F3} -i \"{audioPath}\" -t {duration:F3} -f wav -acodec pcm_s16le -ac 1 -ar 16000 -y -hide_banner -loglevel error \"{outPath}\"")
         {
+            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
 
-        using var proc = Process.Start(psi);
-        if (proc == null) throw new InvalidOperationException("Failed to start ffmpeg");
-        proc.WaitForExit(120000);
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException("ffmpeg chunk extraction failed");
+        try
+        {
+            using var proc = Process.Start(psi);
+            if (proc == null)
+            {
+                Log.Error("[Transcriber] ExtractWavToFile: failed to start ffmpeg");
+                throw new InvalidOperationException("Failed to start ffmpeg");
+            }
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(120000);
+            if (proc.ExitCode != 0)
+            {
+                Log.Error($"[Transcriber] ExtractWavToFile: ffmpeg exit {proc.ExitCode}: {stderr.Trim()}");
+                throw new InvalidOperationException("ffmpeg chunk extraction failed");
+            }
+        }
+        catch (Exception e) when (e is not InvalidOperationException)
+        {
+            Log.Error($"[Transcriber] ExtractWavToFile exception: {e.Message}");
+            throw;
+        }
     }
 
     private static byte[] DecodeAudioChunkToWav(string audioPath, double startTime, double duration)
     {
+        Log.Print($"[Transcriber] DecodeAudioChunkToWav: {audioPath} start={startTime:F3} dur={duration:F3}");
         var psi = new ProcessStartInfo("ffmpeg",
             $"-ss {startTime:F3} -i \"{audioPath}\" -t {duration:F3} -f wav -acodec pcm_s16le -ac 1 -ar 16000 -y -hide_banner -loglevel error pipe:1")
         {
             RedirectStandardOutput = true,
+            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
 
-        using var proc = Process.Start(psi);
-        if (proc == null) throw new InvalidOperationException("Failed to start ffmpeg");
+        try
+        {
+            using var proc = Process.Start(psi);
+            if (proc == null)
+            {
+                Log.Error("[Transcriber] DecodeAudioChunkToWav: failed to start ffmpeg");
+                throw new InvalidOperationException("Failed to start ffmpeg");
+            }
 
-        using var ms = new MemoryStream();
-        proc.StandardOutput.BaseStream.CopyTo(ms);
-        proc.WaitForExit(120000);
+            using var ms = new MemoryStream();
+            proc.StandardOutput.BaseStream.CopyTo(ms);
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(120000);
 
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException("ffmpeg audio chunk decode failed");
+            if (proc.ExitCode != 0)
+            {
+                Log.Error($"[Transcriber] DecodeAudioChunkToWav: ffmpeg exit {proc.ExitCode}: {stderr.Trim()}");
+                throw new InvalidOperationException("ffmpeg audio chunk decode failed");
+            }
 
-        return ms.ToArray();
+            return ms.ToArray();
+        }
+        catch (Exception e) when (e is not InvalidOperationException)
+        {
+            Log.Error($"[Transcriber] DecodeAudioChunkToWav exception: {e.Message}");
+            throw;
+        }
     }
 
     private static string FormatTime(double t)
@@ -377,33 +417,12 @@ public class Transcriber : IDisposable
 
     private static byte[] DecodeAudioToWav(string audioPath)
     {
+        Log.Print($"[Transcriber] DecodeAudioToWav: {audioPath}");
         var psi = new ProcessStartInfo("ffmpeg",
             $"-i \"{audioPath}\" -f wav -acodec pcm_s16le -ac 1 -ar 16000 -y -hide_banner -loglevel error pipe:1")
         {
             RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        using var proc = Process.Start(psi);
-        if (proc == null) throw new InvalidOperationException("Failed to start ffmpeg");
-
-        using var ms = new MemoryStream();
-        proc.StandardOutput.BaseStream.CopyTo(ms);
-        proc.WaitForExit(120000);
-
-        if (proc.ExitCode != 0)
-            throw new InvalidOperationException("ffmpeg audio decoding failed");
-
-        return ms.ToArray();
-    }
-
-    private static double GetDuration(string path)
-    {
-        var psi = new ProcessStartInfo("ffprobe",
-            $"-v error -show_entries format=duration -of csv=p=0 \"{path}\"")
-        {
-            RedirectStandardOutput = true,
+            RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -411,12 +430,64 @@ public class Transcriber : IDisposable
         try
         {
             using var proc = Process.Start(psi);
-            if (proc == null) return 0;
+            if (proc == null)
+            {
+                Log.Error("[Transcriber] DecodeAudioToWav: failed to start ffmpeg");
+                throw new InvalidOperationException("Failed to start ffmpeg");
+            }
+
+            using var ms = new MemoryStream();
+            proc.StandardOutput.BaseStream.CopyTo(ms);
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit(120000);
+
+            if (proc.ExitCode != 0)
+            {
+                Log.Error($"[Transcriber] DecodeAudioToWav: ffmpeg exit {proc.ExitCode}: {stderr.Trim()}");
+                throw new InvalidOperationException("ffmpeg audio decoding failed");
+            }
+
+            return ms.ToArray();
+        }
+        catch (Exception e) when (e is not InvalidOperationException)
+        {
+            Log.Error($"[Transcriber] DecodeAudioToWav exception: {e.Message}");
+            throw;
+        }
+    }
+
+    private static double GetDuration(string path)
+    {
+        Log.Print($"[Transcriber] GetDuration: {path}");
+        var psi = new ProcessStartInfo("ffprobe",
+            $"-v error -show_entries format=duration -of csv=p=0 \"{path}\"")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        try
+        {
+            using var proc = Process.Start(psi);
+            if (proc == null)
+            {
+                Log.Warn("[Transcriber] GetDuration: failed to start ffprobe");
+                return 0;
+            }
             string output = proc.StandardOutput.ReadToEnd().Trim();
             proc.WaitForExit(10000);
-            return double.TryParse(output, out var d) ? d : 0;
+            if (double.TryParse(output, out var d))
+                return d;
+            Log.Warn($"[Transcriber] GetDuration: could not parse ffprobe output: \"{output}\"");
+            return 0;
         }
-        catch { return 0; }
+        catch (Exception e)
+        {
+            Log.Error($"[Transcriber] GetDuration exception: {e.Message}");
+            return 0;
+        }
     }
 
     private static async Task WaitForFreeVramAsync(long minFreeMb = 500, int maxWaitSec = 30)
@@ -451,6 +522,6 @@ public class Transcriber : IDisposable
             await Task.Delay(1000);
         }
 
-        GD.Print($"[Transcriber] VRAM wait exhausted ({freeMb} MB free, needed {minFreeMb}) — proceeding anyway");
+        Log.Print($"[Transcriber] VRAM wait exhausted ({freeMb} MB free, needed {minFreeMb}) — proceeding anyway");
     }
 }

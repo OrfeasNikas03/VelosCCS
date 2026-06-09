@@ -60,6 +60,7 @@ public static class LlamaManager
 
     public static async Task<bool> EnsureModelDownloadedAsync(string? modelName = null, Action<string>? progressCallback = null)
     {
+        Log.Print("[Llama] Download started");
         string name = modelName ?? GetDetectedModel();
         string modelFile = GetModelPath(name);
         if (IsModelDownloaded(name))
@@ -70,7 +71,7 @@ public static class LlamaManager
         try { if (File.Exists(modelFile)) File.Delete(modelFile); } catch { }
         string url = ModelUrl(name);
         progressCallback?.Invoke($"Downloading {name}...");
-        GD.Print($"[LlamaManager] downloading {name} from {url}");
+        Log.Print($"[Llama] downloading {name} from {url}");
 
         try
         {
@@ -93,13 +94,13 @@ public static class LlamaManager
                     progressCallback?.Invoke($"Downloading {name}... {pct}%");
                 }
             }
-            GD.Print($"[LlamaManager] {name} downloaded ({bytesRead / 1048576} MB at {modelFile})");
+            Log.Print($"[Llama] {name} downloaded ({bytesRead / 1048576} MB at {modelFile})");
             progressCallback?.Invoke($"{name} downloaded");
             return true;
         }
         catch (Exception ex)
         {
-            GD.PrintErr($"[LlamaManager] failed to download {name}: {ex.Message}");
+            Log.Error($"[Llama] failed to download {name}: {ex.Message}");
             progressCallback?.Invoke($"Download failed: {ex.Message}");
             try { File.Delete(modelFile); } catch { }
             return false;
@@ -148,25 +149,25 @@ public static class LlamaManager
 
 		// Candidate 0: project root via res:// (works in editor)
 		string c0 = ProjectSettings.GlobalizePath("res://LlamaWorker_published/" + cli);
-		if (File.Exists(c0)) { _cliPath = c0; GD.Print($"[LlamaManager] Found {c0}"); return _cliPath; }
+		if (File.Exists(c0)) { _cliPath = c0; Log.Print($"[Llama] Found {c0}"); return _cliPath; }
 
 		// Candidate 1: alongside the executable (used by exported/packaged app)
 		string c1 = Path.Combine(baseDir, "LlamaWorker_published", cli);
-        if (File.Exists(c1)) { _cliPath = c1; GD.Print($"[LlamaManager] Found {c1}"); return _cliPath; }
+        if (File.Exists(c1)) { _cliPath = c1; Log.Print($"[Llama] Found {c1}"); return _cliPath; }
 
         // Candidate 2: one level up from baseDir/LlamaWorker_published (when running from data_* subdir)
         string c2 = Path.Combine(baseDir, "..", "LlamaWorker_published", cli);
-        if (File.Exists(c2)) { _cliPath = c2; GD.Print($"[LlamaManager] Found {c2}"); return _cliPath; }
+        if (File.Exists(c2)) { _cliPath = c2; Log.Print($"[Llama] Found {c2}"); return _cliPath; }
 
         // Candidate 3: Linux user install path
         if (!OperatingSystem.IsWindows())
         {
             string c3 = Path.Combine(home, ".local", "share", "velosccs", "LlamaWorker_published", cli);
-            if (File.Exists(c3)) { _cliPath = c3; GD.Print($"[LlamaManager] Found {c3}"); return _cliPath; }
+            if (File.Exists(c3)) { _cliPath = c3; Log.Print($"[Llama] Found {c3}"); return _cliPath; }
         }
 
         _cliPath = "";
-        GD.Print("[LlamaManager] llama-cli not found (searched: " + string.Join(", ", c1, c2) + ")");
+        Log.Print("[Llama] llama-cli not found (searched: " + string.Join(", ", c1, c2) + ")");
         return "";
     }
 }

@@ -112,7 +112,10 @@ public partial class MainWindow : Control
 	public override void _Notification(int what)
 	{
 		if (what == NotificationWMCloseRequest || what == NotificationWMGoBackRequest)
+		{
 			AppConfig.SaveSettings();
+			Log.Print("[UI] MainWindow closing — settings saved");
+		}
 	}
 
 	public override void _Ready()
@@ -156,6 +159,7 @@ public partial class MainWindow : Control
 			GD.Print("[MainWindow] Scheduling ShowWhisperSetup via CallDeferred");
 			CallDeferred(nameof(ShowWhisperSetup));
 		}
+		this.LogSizes("MainWindow._Ready");
 	}
 
 	private void ShowWhisperSetup()
@@ -195,6 +199,7 @@ public partial class MainWindow : Control
 	// ── Public accessors for TestServer ──
 	public void ResetProject()
 	{
+		Log.Print("[UI] ResetProject");
 		_tracks.Clear();
 		_undoStack.Clear();
 		_redoStack.Clear();
@@ -214,6 +219,7 @@ public partial class MainWindow : Control
 		UpdateTracks();
 		SwitchToState(ViewState.Import);
 		SetStatus("Reset", Color.FromHtml("#D0570C"));
+		this.LogSizes("ResetProject");
 	}
 	public void ImportFileInternal(string path) { ImportFileToBin(path); }
 	public string? GetVideoPath() => _videoPath;
@@ -600,7 +606,7 @@ public partial class MainWindow : Control
 			SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
 		};
 		bigBtnClick.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = Color.FromHtml("#555555"), CornerRadiusTopLeft = 10, CornerRadiusTopRight = 10, CornerRadiusBottomLeft = 10, CornerRadiusBottomRight = 10, ContentMarginLeft = 20, ContentMarginRight = 20, ContentMarginTop = 10, ContentMarginBottom = 10 });
-		bigBtnClick.Pressed += () => _fileDialog.PopupCentered();
+		bigBtnClick.Pressed += () => { Log.Print("[UI] Button: Select File pressed"); _fileDialog.PopupCentered(); };
 		bigBtnVbox.AddChild(bigBtnClick);
 		bigBtn.GuiInput += (ev) =>
 		{
@@ -629,9 +635,9 @@ public partial class MainWindow : Control
 		var urlBtn = new Button { Text = "Fetch" };
 		urlBtn.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = Color.FromHtml("#555555"), CornerRadiusTopLeft = 10, CornerRadiusTopRight = 10, CornerRadiusBottomLeft = 10, CornerRadiusBottomRight = 10, ContentMarginLeft = 16, ContentMarginRight = 16, ContentMarginTop = 8, ContentMarginBottom = 8 });
 		urlBtn.AddThemeColorOverride("font_color", Color.FromHtml("#D0570C"));
-		urlBtn.Pressed += OnDownloadPressed;
+		urlBtn.Pressed += () => { Log.Print("[UI] Button: Fetch pressed"); OnDownloadPressed(); };
 		var urlClearBtn = new Button { Text = "X", Flat = true, CustomMinimumSize = new Vector2(36, 36), TooltipText = "Clear" };
-		urlClearBtn.Pressed += () => { _urlInput.Text = ""; _importPreview.Visible = false; };
+		urlClearBtn.Pressed += () => { Log.Print("[UI] Button: Clear URL pressed"); _urlInput.Text = ""; _importPreview.Visible = false; };
 		var urlRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
 		urlRow.AddChild(_urlInput);
 		urlRow.AddChild(urlBtn);
@@ -654,12 +660,12 @@ public partial class MainWindow : Control
 		_selectClipsBtn = new Button { Text = "Select Clips to Download" };
 		_selectClipsBtn.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = Color.FromHtml("#555555"), CornerRadiusTopLeft = 10, CornerRadiusTopRight = 10, CornerRadiusBottomLeft = 10, CornerRadiusBottomRight = 10, ContentMarginLeft = 16, ContentMarginRight = 16, ContentMarginTop = 8, ContentMarginBottom = 8 });
 		_selectClipsBtn.AddThemeColorOverride("font_color", Color.FromHtml("#D0570C"));
-		_selectClipsBtn.Pressed += OnSelectClips;
+		_selectClipsBtn.Pressed += () => { Log.Print("[UI] Button: Select Clips pressed"); OnSelectClips(); };
 		infoVbox.AddChild(_selectClipsBtn);
 		_aiFindBtn = new Button { Text = "AI Find Clips" };
 		_aiFindBtn.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = Color.FromHtml("#555555"), CornerRadiusTopLeft = 10, CornerRadiusTopRight = 10, CornerRadiusBottomLeft = 10, CornerRadiusBottomRight = 10, ContentMarginLeft = 16, ContentMarginRight = 16, ContentMarginTop = 8, ContentMarginBottom = 8 });
 		_aiFindBtn.AddThemeColorOverride("font_color", Color.FromHtml("#BF2618"));
-		_aiFindBtn.Pressed += OnAIFindClips;
+		_aiFindBtn.Pressed += () => { Log.Print("[UI] Button: AI Find Clips pressed"); OnAIFindClips(); };
 		infoVbox.AddChild(_aiFindBtn);
 		_importPreview.AddChild(infoVbox);
 		impV.AddChild(_importPreview);
@@ -696,6 +702,7 @@ public partial class MainWindow : Control
 
 		BuildSidebarButton("Settings", () =>
 		{
+			Log.Print("[UI] Button: Settings pressed");
 			var dlg = new SettingsDialog
 			{
 				CurrentOutputDir = ExportOutputDir,
@@ -716,11 +723,12 @@ public partial class MainWindow : Control
 			AddChild(dlg);
 			dlg.PopupCentered();
 		});
-		BuildSidebarButton("Console", () => DebugConsole.Toggle());
-		BuildSidebarButton("Save", () => _saveDialog.PopupCentered());
-		BuildSidebarButton("Open", () => _openProjectDialog.PopupCentered());
+		BuildSidebarButton("Console", () => { Log.Print("[UI] Button: Console pressed"); DebugConsole.Toggle(); });
+		BuildSidebarButton("Save", () => { Log.Print("[UI] Button: Save pressed"); _saveDialog.PopupCentered(); });
+		BuildSidebarButton("Open", () => { Log.Print("[UI] Button: Open pressed"); _openProjectDialog.PopupCentered(); });
 		BuildSidebarButton("Legal", () =>
 		{
+			Log.Print("[UI] Button: Legal pressed");
 			var dlg = new AcceptDialog { Title = "Legal & Credits", MinSize = new Vector2I(520, 400), Exclusive = true, OkButtonText = "Close" };
 			var vbox = new VBoxContainer();
 			vbox.AddThemeConstantOverride("separation", 10);
@@ -796,7 +804,7 @@ public partial class MainWindow : Control
 		_exportBtn.AddThemeStyleboxOverride("pressed", _exportRed);
 		_exportBtn.AddThemeStyleboxOverride("disabled", exportGray);
 		_exportBtn.AddThemeColorOverride("font_color", Color.FromHtml("#11121C"));
-		_exportBtn.Pressed += OnExportPressed;
+		_exportBtn.Pressed += () => { Log.Print("[UI] Button: Export pressed"); OnExportPressed(); };
 		_sideVbox.AddChild(_exportBtn);
 
 		_continueBtn = new Button
@@ -811,7 +819,7 @@ public partial class MainWindow : Control
 		_continueBtn.AddThemeStyleboxOverride("hover", _exportRed);
 		_continueBtn.AddThemeStyleboxOverride("pressed", _exportRed);
 		_continueBtn.AddThemeColorOverride("font_color", Color.FromHtml("#FFFFFF"));
-		_continueBtn.Pressed += () => SwitchToState(ViewState.Edit);
+		_continueBtn.Pressed += () => { Log.Print("[UI] Button: Continue pressed"); SwitchToState(ViewState.Edit); };
 		_sideVbox.AddChild(_continueBtn);
 
 		// CONTENT STACK: toggles between Import view and Editor content
@@ -907,7 +915,7 @@ public partial class MainWindow : Control
 			Visible = false,
 			SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
 		};
-		_layoutPlayBtn.Pressed += () => SetPlayback(!_isPlaying, false);
+		_layoutPlayBtn.Pressed += () => { Log.Print("[UI] Button: Layout Play pressed"); SetPlayback(!_isPlaying, false); };
 		_sourceVbox.AddChild(_layoutPlayBtn);
 
 		_videoPlayer = new VideoStreamPlayer { Expand = true, MouseFilter = MouseFilterEnum.Ignore };
@@ -1110,6 +1118,7 @@ public partial class MainWindow : Control
 
 	private void TransitionToView(Control activeView)
 	{
+		Log.Print($"[UI] TransitionToView: activeView={(activeView == _importView ? "Import" : "Editor")}, old={_currentState}");
 		Control[] allViews = { _importView, _editorContent };
 
 		foreach (var v in allViews)
@@ -1122,6 +1131,7 @@ public partial class MainWindow : Control
 					v.Modulate = new Color(1, 1, 1, 0);
 					var tween = CreateTween();
 					tween.TweenProperty(v, "modulate", new Color(1, 1, 1, 1), 0.3f);
+					tween.Finished += () => this.LogSizes("TransitionToView/" + (activeView == _importView ? "Import" : "Editor"));
 				}
 
 				if (v == _editorContent)
@@ -1134,6 +1144,7 @@ public partial class MainWindow : Control
 					var tween = CreateTween();
 					tween.TweenProperty(v, "modulate", new Color(1, 1, 1, 0), 0.15f);
 					tween.TweenProperty(v, "visible", false, 0);
+					tween.Finished += () => this.LogSizes("TransitionToView/Hide");
 				}
 				else
 				{
@@ -1145,7 +1156,7 @@ public partial class MainWindow : Control
 
 	private void SwitchToState(ViewState state)
 	{
-		Log.Print($"SwitchToState: {_currentState} -> {state}");
+		Log.Print($"[UI] SwitchToState: {_currentState} → {state}");
 		var prevState = _currentState;
 		_currentState = state;
 		if (state == ViewState.Import) TransitionToView(_importView);
@@ -1318,6 +1329,7 @@ public partial class MainWindow : Control
 			btn.AddThemeColorOverride("font_color", active ? Color.FromHtml("#D0570C") : Color.FromHtml("#555555"));
 			btn.Pressed += () =>
 			{
+				Log.Print($"[UI] Step indicator: {labels[idx]} clicked");
 				if (idx == 0) SwitchToState(ViewState.Import);
 				else if (idx == 1 && _projectBin.Count > 0) SwitchToState(ViewState.Layout);
 				else if (idx == 2 && _projectBin.Count > 0) SwitchToState(ViewState.Edit);
@@ -1348,17 +1360,20 @@ public partial class MainWindow : Control
 
 	private void ToggleSlidePanel()
 	{
+		Log.Print("[UI] ToggleSlidePanel");
 		_slideOpen = !_slideOpen;
 		if (_slideOpen)
 		{
 			var t = CreateTween();
 			t.TweenProperty(_slideWrapper, "custom_minimum_size", new Vector2(240, 0), 0.25f).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+			t.Finished += () => this.LogSizes("SlidePanel/Open");
 			_toggleBtn.Text = (_currentState == ViewState.Layout ? "Layout" : "Media") + " \u25C2";
 		}
 		else
 		{
 			var t = CreateTween();
 			t.TweenProperty(_slideWrapper, "custom_minimum_size", new Vector2(0, 0), 0.2f).SetEase(Tween.EaseType.In).SetTrans(Tween.TransitionType.Cubic);
+			t.Finished += () => this.LogSizes("SlidePanel/Close");
 			_toggleBtn.Text = (_currentState == ViewState.Layout ? "Layout" : "Media") + " \u25B6";
 		}
 	}
@@ -1376,10 +1391,10 @@ public partial class MainWindow : Control
 		}
 
 		_playBtn = MakeToolBtn("Play", "Play / Pause (Space)");
-		_playBtn.Pressed += () => SetPlayback(!_isPlaying, false);
+		_playBtn.Pressed += () => { Log.Print("[UI] Button: Play pressed"); SetPlayback(!_isPlaying, false); };
 
 		var pauseMoveBtn = MakeToolBtn("Pause & Move", "Stop, move playhead here (Enter / K)");
-		pauseMoveBtn.Pressed += () => SetPlayback(false, true);
+		pauseMoveBtn.Pressed += () => { Log.Print("[UI] Button: PauseMove pressed"); SetPlayback(false, true); };
 
 		_editToolbar.AddChild(_playBtn);
 		_editToolbar.AddChild(pauseMoveBtn);
@@ -1398,17 +1413,17 @@ public partial class MainWindow : Control
 		_editToolbar.AddChild(new VSeparator());
 
 		var prevFrame = MakeToolBtn("<<", "Previous frame (Shift+Left)");
-		prevFrame.Pressed += () => StepTimeline(-1, false);
+		prevFrame.Pressed += () => { Log.Print("[UI] Button: PrevFrame pressed"); StepTimeline(-1, false); };
 		var nextFrame = MakeToolBtn(">>", "Next frame (Shift+Right)");
-		nextFrame.Pressed += () => StepTimeline(1, false);
+		nextFrame.Pressed += () => { Log.Print("[UI] Button: NextFrame pressed"); StepTimeline(1, false); };
 		_editToolbar.AddChild(prevFrame);
 		_editToolbar.AddChild(nextFrame);
 		_editToolbar.AddChild(new VSeparator());
 
 		var stepBack = MakeToolBtn("-5%", "Jump back 5% (Left)");
-		stepBack.Pressed += () => StepTimeline(-1, true);
+		stepBack.Pressed += () => { Log.Print("[UI] Button: StepBack pressed"); StepTimeline(-1, true); };
 		var stepFwd = MakeToolBtn("+5%", "Jump forward 5% (Right)");
-		stepFwd.Pressed += () => StepTimeline(1, true);
+		stepFwd.Pressed += () => { Log.Print("[UI] Button: StepFwd pressed"); StepTimeline(1, true); };
 		_editToolbar.AddChild(stepBack);
 		_editToolbar.AddChild(stepFwd);
 		_editToolbar.AddChild(new VSeparator());
@@ -1430,10 +1445,10 @@ public partial class MainWindow : Control
 		_editToolbar.AddChild(new VSeparator());
 
 		var addVBtn = MakeToolBtn("+V", "Add Video Track");
-		addVBtn.Pressed += () => AddTrack(TrackType.Video);
+		addVBtn.Pressed += () => { Log.Print("[UI] Button: Add Video Track pressed"); AddTrack(TrackType.Video); };
 		_editToolbar.AddChild(addVBtn);
 		var addABtn = MakeToolBtn("+A", "Add Audio Track");
-		addABtn.Pressed += () => AddTrack(TrackType.Audio);
+		addABtn.Pressed += () => { Log.Print("[UI] Button: Add Audio Track pressed"); AddTrack(TrackType.Audio); };
 		_editToolbar.AddChild(addABtn);
 
 		}
@@ -1528,24 +1543,24 @@ public partial class MainWindow : Control
 		var btnRow = new HBoxContainer();
 		btnRow.AddThemeConstantOverride("separation", 6);
 		var importBtn = new Button { Text = "Import", SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = "Import video/audio file (Ctrl+I)" };
-		importBtn.Pressed += () => _fileDialog.PopupCentered();
+		importBtn.Pressed += () => { Log.Print("[UI] Button: Import Media pressed"); _fileDialog.PopupCentered(); };
 		btnRow.AddChild(importBtn);
 		var textBtn = new Button { Text = "Text", SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = "Add a text clip (Ctrl+T)" };
-		textBtn.Pressed += OnAddTextClip;
+		textBtn.Pressed += () => { Log.Print("[UI] Button: Add Text pressed"); OnAddTextClip(); };
 		btnRow.AddChild(textBtn);
 		var sfxBtn = new Button { Text = "SFX", SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = "Add sound effect" };
-		sfxBtn.Pressed += OpenSoundBrowserWindow;
+		sfxBtn.Pressed += () => { Log.Print("[UI] Button: Add SFX pressed"); OpenSoundBrowserWindow(); };
 		btnRow.AddChild(sfxBtn);
 		parent.AddChild(btnRow);
 
 		parent.AddChild(new HSeparator());
 
 		var capsBtn = new Button { Text = "Generate Captions", SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = "Auto-transcribe with Whisper (Ctrl+G)" };
-		capsBtn.Pressed += OnGenerateCaptions;
+		capsBtn.Pressed += () => { Log.Print("[UI] Button: Captions pressed"); OnGenerateCaptions(); };
 		parent.AddChild(capsBtn);
 
 		var stickerBtn = new Button { Text = "Add Image/GIF", SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = "Open sticker/emote browser" };
-		stickerBtn.Pressed += OpenImageBrowserWindow;
+		stickerBtn.Pressed += () => { Log.Print("[UI] Button: Add Sticker pressed"); OpenImageBrowserWindow(); };
 		parent.AddChild(stickerBtn);
 	}
 
@@ -1600,6 +1615,7 @@ public partial class MainWindow : Control
 	// Pop from undo stack → push current state to redo stack → restore
 	private void Undo()
 	{
+		Log.Print("[UI] Undo");
 		if (_undoStack.Count == 0) return;
 		var current = _tracks.Select(t => new TrackData
 		{
@@ -1615,6 +1631,7 @@ public partial class MainWindow : Control
 	// Pop from redo stack → push current state to undo stack → restore
 	private void Redo()
 	{
+		Log.Print("[UI] Redo");
 		if (_redoStack.Count == 0) return;
 		var current = _tracks.Select(t => new TrackData
 		{

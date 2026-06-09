@@ -136,6 +136,7 @@ public partial class MainWindow
 	private string? _lastLoadedVideoPath;
 	private void SwitchVideoFile(string filePath, double seekPos)
 	{
+		Log.Print($"[UI] SwitchVideoFile: {filePath}");
 		bool wasPlaying = _isPlaying && !_videoPlayer.Paused;
 		_videoPlayer.Paused = true;
 
@@ -250,6 +251,7 @@ public partial class MainWindow
 	// Seek video player to given time, update timeline/overlay/preview, stop SFX
 	private void SeekVideo(double time)
 	{
+		Log.Print($"[UI] SeekVideo: {time}");
 		if (_videoPlayer.Stream == null) return;
 
 		_timelinePlayheadPos = time;
@@ -280,6 +282,7 @@ public partial class MainWindow
 	// move selection to current playhead position (Enter/K shortcut behavior).
 	private void SetPlayback(bool shouldPlay, bool moveSelectionToCurrent = false)
 	{
+		Log.Print($"[UI] SetPlayback: playing={shouldPlay}, pauseMove={moveSelectionToCurrent}");
 		if (_videoPlayer.Stream == null) return;
 
 		if (shouldPlay)

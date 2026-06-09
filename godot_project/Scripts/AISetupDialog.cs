@@ -114,7 +114,7 @@ public partial class AISetupDialog : Window
         var btnRow = new HBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         btnRow.AddThemeConstantOverride("separation", 8);
         _cancelBtn = new Button { Text = "Cancel", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        _cancelBtn.Pressed += () => this.BounceOutThenFree();
+        _cancelBtn.Pressed += () => { Log.Print("[UI] AISetupDialog: Cancel"); this.BounceOutThenFree(); };
         btnRow.AddChild(_cancelBtn);
 
         _actionBtn = new Button
@@ -154,7 +154,7 @@ public partial class AISetupDialog : Window
         int sel = _modelList.GetSelectedItems().Length > 0 ? _modelList.GetSelectedItems()[0] : 0;
         string model = LlamaManager.ModelOptions[sel].name;
         string language = (string)_languageDropdown.GetItemMetadata(_languageDropdown.Selected);
-        Log.Print($"AISetupDialog: selected model={model}, language={language}");
+        Log.Print($"[UI] AISetupDialog: Action - {model}/{language}");
 
         if (!LlamaManager.IsModelDownloaded(model))
         {

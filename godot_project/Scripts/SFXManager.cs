@@ -26,27 +26,38 @@ public partial class SFXManager : Node
 
     public override void _Ready()
     {
+        Log.Print("[SFX] _Ready");
         if (!DirAccess.DirExistsAbsolute(SFXDir))
             DirAccess.MakeDirRecursiveAbsolute(SFXDir);
     }
 
     public async Task<string?> DownloadSFX(string name)
     {
-        if (!AvailableSFX.TryGetValue(name, out var url)) return null;
+        Log.Print($"[SFX] DownloadSFX entry: {name}");
+        if (!AvailableSFX.TryGetValue(name, out var url))
+        {
+            Log.Error($"[SFX] DownloadSFX: {name} not in available SFX");
+            return null;
+        }
 
         string localPath = $"{SFXDir}{name.Replace(" ", "_").ToLower()}.mp3";
-        if (FileAccess.FileExists(localPath)) return localPath;
+        if (FileAccess.FileExists(localPath))
+        {
+            Log.Print($"[SFX] DownloadSFX: {name} already cached at {localPath}");
+            return localPath;
+        }
 
         try
         {
             byte[] data = await _httpClient.GetByteArrayAsync(url);
             using var file = FileAccess.Open(localPath, FileAccess.ModeFlags.Write);
             file.StoreBuffer(data);
+            Log.Print($"[SFX] DownloadSFX: {name} downloaded to {localPath}");
             return localPath;
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[SFXManager] Download failed: {e.Message}");
+            Log.Error($"[SFX] DownloadSFX failed for {name}: {e.Message}");
             return null;
         }
     }

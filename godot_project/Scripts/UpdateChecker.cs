@@ -19,9 +19,10 @@ public static class UpdateChecker
 
     public static async Task<UpdateInfo?> CheckAsync(string currentVersion)
     {
+        Log.Print("[Update] CheckForUpdates started");
         if (string.IsNullOrEmpty(AppConfig.UpdateRepoUrl))
         {
-            GD.Print("[UpdateChecker] UpdateRepoUrl is not set — skipping check");
+            Log.Warn("[Update] UpdateRepoUrl is not set — skipping check");
             return null;
         }
 
@@ -60,26 +61,26 @@ public static class UpdateChecker
 
             if (downloadUrl == null)
             {
-                GD.Print("[UpdateChecker] No installer asset found in release");
+                Log.Warn("[Update] No installer asset found in release");
                 return null;
             }
 
             if (!Version.TryParse(versionStr, out var latest) ||
                 !Version.TryParse(currentVersion, out var current))
             {
-                GD.Print("[UpdateChecker] Could not parse versions");
+                Log.Warn("[Update] Could not parse versions");
                 return null;
             }
 
             if (latest <= current)
             {
-                GD.Print($"[UpdateChecker] Current v{currentVersion} is up to date (latest: {versionStr})");
+                Log.Print($"[Update] Current v{currentVersion} is up to date (latest: {versionStr})");
                 return null;
             }
 
             if (versionStr == AppConfig.SkipUpdateVersion)
             {
-                GD.Print($"[UpdateChecker] v{versionStr} was skipped by user");
+                Log.Print($"[Update] v{versionStr} was skipped by user");
                 return null;
             }
 
@@ -87,13 +88,18 @@ public static class UpdateChecker
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[UpdateChecker] Check failed: {e.Message}");
+            Log.Error($"[Update] Check failed: {e.Message}");
             return null;
+        }
+        finally
+        {
+            Log.Print("[Update] CheckForUpdates completed");
         }
     }
 
     public static async Task<string> DownloadInstallerAsync(string url, string destPath, IProgress<double>? progress = null)
     {
+        Log.Print("[Update] DownloadUpdate started");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("VelosCCS");
         if (!string.IsNullOrEmpty(AppConfig.UpdateRepoToken))
@@ -118,14 +124,16 @@ public static class UpdateChecker
                 progress?.Report((double)bytesRead / totalBytes * 100.0);
         }
 
+        Log.Print("[Update] DownloadUpdate completed");
         return destPath;
     }
 
     public static void ApplyUpdate(string installerPath)
     {
+        Log.Print("[Update] LaunchInstaller started");
         if (OS.GetName() != "Windows")
         {
-            GD.Print("[UpdateChecker] Auto-update only supported on Windows");
+            Log.Print("[Update] Auto-update only supported on Windows");
             return;
         }
 
@@ -142,7 +150,7 @@ public static class UpdateChecker
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[UpdateChecker] Failed to launch installer: {e.Message}");
+            Log.Error($"[Update] Failed to launch installer: {e.Message}");
         }
     }
 

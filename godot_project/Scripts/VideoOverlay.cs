@@ -100,6 +100,7 @@ public partial class VideoOverlay : Control
 
 	public void SetMode(OverlayMode mode)
 	{
+		Log.Print($"[Overlay] SetMode {mode}");
 		_mode = mode;
 		QueueRedraw();
 		if (mode == OverlayMode.Editing)
@@ -110,6 +111,7 @@ public partial class VideoOverlay : Control
 
 	public void SyncLayers(List<TrackData> tracks)
 	{
+		Log.Print($"[Overlay] SyncLayers tracks={tracks.Count}");
 		_tracks = tracks;
 		foreach (var kv in _layerNodes)
 			kv.Value.QueueFree();
@@ -138,6 +140,7 @@ public partial class VideoOverlay : Control
 
 	public void SelectLayer(int t, int c, TrackClipData? clip)
 	{
+		Log.Print($"[Overlay] SelectLayer track={t} clip={c}");
 		_activeClip = clip;
 		_pipMode = PipEditMode.None;
 		QueueRedraw();
@@ -145,6 +148,7 @@ public partial class VideoOverlay : Control
 
 	public void SetPipEditing(string trackName, Vector2 pos, Vector2 size)
 	{
+		Log.Print($"[Overlay] SetPipEditing track={trackName} pos={pos} size={size}");
 		_activeClip = null;
 		_pipMode = trackName is "Camera" or "Basic Facecam" ? PipEditMode.Camera : PipEditMode.Ui;
 		_pipPos = pos;
@@ -154,13 +158,15 @@ public partial class VideoOverlay : Control
 
 	public void ClearPipEditing()
 	{
+		Log.Print("[Overlay] ClearPipEditing");
 		_pipMode = PipEditMode.None;
 		QueueRedraw();
 	}
 
 	public void RefreshActiveLayer()
 	{
-		if (_activeClip == null) return;
+		if (_activeClip == null) { Log.Print("[Overlay] RefreshActiveLayer: no active clip"); return; }
+		Log.Print("[Overlay] RefreshActiveLayer");
 
 		foreach (var (key, node) in _layerNodes)
 		{
@@ -190,7 +196,7 @@ public partial class VideoOverlay : Control
 					}
 					catch (Exception e)
 					{
-						GD.PrintErr($"[VideoOverlay] Font load failed: {e.Message}");
+						Log.Error($"[Overlay] Font load failed: {e.Message}");
 					}
 				}
 			}
@@ -232,7 +238,7 @@ public partial class VideoOverlay : Control
 					}
 					catch (Exception ex)
 					{
-						GD.PrintErr($"[VideoOverlay] Failed to load font: {clip.FontPath} - {ex.Message}");
+						Log.Error($"[Overlay] Failed to load font: {clip.FontPath} - {ex.Message}");
 					}
 				}
 
@@ -347,18 +353,21 @@ public partial class VideoOverlay : Control
 
 	public void AddRegion(string name, Rect2 rect, Color color)
 	{
+		Log.Print($"[Overlay] AddRegion {name}");
 		Regions.Add(new OverlayRegion { Name = name, Rect = rect, Color = color });
 		QueueRedraw();
 	}
 
 	public void RemoveRegion(string name)
 	{
+		Log.Print($"[Overlay] RemoveRegion {name}");
 		Regions.RemoveAll(r => r.Name == name);
 		QueueRedraw();
 	}
 
 	public void ClearLayers()
 	{
+		Log.Print("[Overlay] ClearLayers");
 		foreach (var kv in _layerNodes)
 			kv.Value.QueueFree();
 		_layerNodes.Clear();
@@ -367,11 +376,16 @@ public partial class VideoOverlay : Control
 
 	public void SetRegionVisible(string name, bool visible)
 	{
+		Log.Print($"[Overlay] SetRegionVisible {name}={visible}");
 		var region = GetRegion(name);
 		if (region != null)
 		{
 			region.Visible = visible;
 			QueueRedraw();
+		}
+		else
+		{
+			Log.Warn($"[Overlay] SetRegionVisible: region '{name}' not found");
 		}
 	}
 

@@ -46,9 +46,14 @@ public class AudioWaveform
 
     public static AudioWaveform? Extract(string videoPath, int targetPeaks = 0)
     {
+        Log.Print($"[Waveform] Extract entry: {videoPath} targetPeaks={targetPeaks}");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         double? dur = GetDuration(videoPath);
         if (dur == null || dur <= 0)
+        {
+            Log.Error($"[Waveform] Extract: GetDuration returned null or zero for {videoPath}");
             return null;
+        }
 
         var psi = new ProcessStartInfo("ffmpeg", $"-i \"{videoPath}\" -ac 1 -ar 8000 -f s16le -hide_banner -loglevel error pipe:1")
         {
@@ -57,23 +62,32 @@ public class AudioWaveform
             CreateNoWindow = true,
         };
 
+        Log.Print($"[Waveform] Extract: running ffmpeg for {videoPath}");
         byte[] raw;
         try
         {
             using var proc = Process.Start(psi);
-            if (proc == null) return null;
+            if (proc == null)
+            {
+                Log.Error($"[Waveform] Extract: ffmpeg process returned null");
+                return null;
+            }
             using var ms = new MemoryStream();
             proc.StandardOutput.BaseStream.CopyTo(ms);
             proc.WaitForExit(30000);
             raw = ms.ToArray();
         }
-        catch
+        catch (Exception e)
         {
+            Log.Error($"[Waveform] Extract: ffmpeg failed for {videoPath}: {e.Message}");
             return null;
         }
 
         if (raw.Length < 2)
+        {
+            Log.Error($"[Waveform] Extract: insufficient raw data ({raw.Length} bytes) from {videoPath}");
             return null;
+        }
 
         int sampleCount = raw.Length / 2;
         var samples = new short[sampleCount];
@@ -98,11 +112,14 @@ public class AudioWaveform
             peaks.Add(MathF.Sqrt((float)(sumSq / cnt)));
         }
 
+        sw.Stop();
+        Log.Print($"[Waveform] Extract finished in {sw.ElapsedMilliseconds}ms: {peaks.Count} peaks, duration={dur.Value:F2}s");
         return new AudioWaveform(peaks, dur.Value);
     }
 
     private static double? GetDuration(string path)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         var psi = new ProcessStartInfo("ffprobe", $"-v error -show_entries format=duration -of csv=p=0 \"{path}\"")
         {
             RedirectStandardOutput = true,
@@ -110,16 +127,25 @@ public class AudioWaveform
             CreateNoWindow = true,
         };
 
+        Log.Print($"[Waveform] GetDuration: running ffprobe for {path}");
         try
         {
             using var proc = Process.Start(psi);
-            if (proc == null) return null;
+            if (proc == null)
+            {
+                Log.Error($"[Waveform] GetDuration: ffprobe process returned null");
+                return null;
+            }
             string output = proc.StandardOutput.ReadToEnd().Trim();
             proc.WaitForExit(10000);
-            return double.Parse(output);
+            double duration = double.Parse(output);
+            sw.Stop();
+            Log.Print($"[Waveform] GetDuration finished in {sw.ElapsedMilliseconds}ms: {duration:F2}s for {path}");
+            return duration;
         }
-        catch
+        catch (Exception e)
         {
+            Log.Error($"[Waveform] GetDuration failed for {path}: {e.Message}");
             return null;
         }
     }

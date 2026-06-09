@@ -114,10 +114,10 @@ public static class Exporter
                         // Validate the encoder actually works (ghost encoders fail on wrong GPU)
                         if (!TryTestEncoder(ffmpeg, name))
                         {
-                            GD.Print($"[Exporter] Encoder {name} listed but not usable, skipping");
+                            Log.Print($"[Exporter] Encoder {name} listed but not usable, skipping");
                             continue;
                         }
-                        GD.Print($"[Exporter] HW encoder: {label} ({name})");
+                        Log.Print($"[Exporter] HW encoder: {label} ({name})");
                         _cachedEncoder = name;
                         _cachedEncoderArgs = new List<string> { "-c:v", name };
                         if (EncPresets.TryGetValue(name, out var preset))
@@ -131,10 +131,10 @@ public static class Exporter
         }
         catch (Exception e)
         {
-            GD.PrintErr($"[Exporter] Encoder probe failed: {e.Message}");
+            Log.Error($"[Exporter] Encoder probe failed: {e.Message}");
         }
 
-        GD.Print("[Exporter] No HW encoder found, using software libx264");
+        Log.Print("[Exporter] No HW encoder found, using software libx264");
         _cachedEncoder = "libx264";
         _cachedEncoderArgs = new List<string>(SwEncoderArgs);
         encoderName = _cachedEncoder;
@@ -158,7 +158,7 @@ public static class Exporter
             string stderr = proc.StandardError.ReadToEnd();
             proc.WaitForExit(10000);
             bool ok = proc.ExitCode == 0;
-            if (!ok) GD.Print($"[Exporter] Encoder test for {encoderName} failed (exit {proc.ExitCode}): {stderr.Trim()}");
+            if (!ok) Log.Print($"[Exporter] Encoder test for {encoderName} failed (exit {proc.ExitCode}): {stderr.Trim()}");
             return ok;
         }
         catch
@@ -197,22 +197,22 @@ public static class Exporter
         if (isStreamladder)
         {
             mode = "streamladder";
-            GD.Print($"[Exporter] Mode: streamladder (layout_mode={layoutMode})");
+            Log.Print($"[Exporter] Mode: streamladder (layout_mode={layoutMode})");
         }
         else if (isLetterbox)
         {
             mode = "letterbox";
-            GD.Print($"[Exporter] Mode: letterbox (blur_intensity={blurIntensity})");
+            Log.Print($"[Exporter] Mode: letterbox (blur_intensity={blurIntensity})");
         }
         else if (useLayout)
         {
             mode = "complex";
-            GD.Print($"[Exporter] Mode: complex (layout_crop={string.Join(",", layoutCrop!)})");
+            Log.Print($"[Exporter] Mode: complex (layout_crop={string.Join(",", layoutCrop!)})");
         }
         else
         {
             mode = "simple";
-            GD.Print($"[Exporter] Mode: simple (crop={cropW}x{cropH}, offset={cropX},{cropY})");
+            Log.Print($"[Exporter] Mode: simple (crop={cropW}x{cropH}, offset={cropX},{cropY})");
         }
 
         List<string> cmd;
@@ -238,11 +238,11 @@ public static class Exporter
 
         var fcIdx = cmd.FindIndex(c => c.Contains("filter_complex"));
         string fcStr = fcIdx >= 0 && fcIdx + 1 < cmd.Count ? cmd[fcIdx + 1] : "(none)";
-        GD.Print($"[Exporter] filter_complex: {fcStr}");
-        GD.Print($"[Exporter] Running FFmpeg (mode={mode})...");
+        Log.Print($"[Exporter] filter_complex: {fcStr}");
+        Log.Print($"[Exporter] Running FFmpeg (mode={mode})...");
 
         await RunFfmpegAsync(cmd, progress, ct);
-        GD.Print($"[Exporter] FFmpeg completed OK for {outputPath}");
+        Log.Print($"[Exporter] FFmpeg completed OK for {outputPath}");
     }
 
     private static async Task RunFfmpegAsync(List<string> cmd,
@@ -844,6 +844,7 @@ public static class Exporter
 
     private static (int w, int h) ProbeVideoDimensions(string path)
     {
+        Log.Print($"[Exporter] ProbeVideoDimensions: {path}");
         try
         {
             var psi = new ProcessStartInfo(FindFfmpeg().Replace("ffmpeg", "ffprobe"),
@@ -854,14 +855,22 @@ public static class Exporter
                 CreateNoWindow = true,
             };
             using var proc = Process.Start(psi);
-            if (proc == null) return (0, 0);
+            if (proc == null)
+            {
+                Log.Warn("[Exporter] ProbeVideoDimensions: failed to start ffprobe");
+                return (0, 0);
+            }
             string output = proc.StandardOutput.ReadToEnd().Trim();
             proc.WaitForExit(5000);
             var parts = output.Split(',');
             if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
                 return (w, h);
+            Log.Warn($"[Exporter] ProbeVideoDimensions: unexpected output: \"{output}\"");
         }
-        catch { }
+        catch (Exception e)
+        {
+            Log.Warn($"[Exporter] ProbeVideoDimensions exception: {e.Message}");
+        }
         return (0, 0);
     }
 

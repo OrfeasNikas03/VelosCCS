@@ -62,7 +62,7 @@ public static class SystemResources
 			long usedMB = sysTotalMB - sysAvailMB;
 			double pctUsed = sysTotalMB > 0 ? (double)usedMB / sysTotalMB * 100 : 0;
 
-			GD.Print($"[RES] {label} — sys: {usedMB}/{sysTotalMB} MB ({pctUsed:F0}%) avail: {sysAvailMB} MB | "
+			VelosCCS.Log.Print($"[SysRes] {label} — sys: {usedMB}/{sysTotalMB} MB ({pctUsed:F0}%) avail: {sysAvailMB} MB | "
 			        + $"proc: {wsMB:F0} MB ws, {privMB:F0} MB priv | "
 			        + $"cpu: {cpuSec:F1}s tot ({cpuPct:F0}% avg) | "
 			        + $"heap: {managedMB} MB | "
@@ -71,7 +71,7 @@ public static class SystemResources
 		}
 		catch (Exception e)
 		{
-			GD.Print($"[RES] {label} — failed: {e.Message}");
+			VelosCCS.Log.Print($"[SysRes] {label} — failed: {e.Message}");
 		}
 	}
 

@@ -338,7 +338,7 @@ partial class MainWindow
             h.AddChild(selectBtn);
 
             string captured = item.Name;
-            selectBtn.Pressed += () => _ = PickFont(captured);
+            selectBtn.Pressed += () => { Log.Print("[UI] Button: Font Select pressed"); _ = PickFont(captured); };
             card.GuiInput += (ev) =>
             {
                 if (ev is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
@@ -391,6 +391,7 @@ partial class MainWindow
 
         importBtn.Pressed += () =>
         {
+            Log.Print("[UI] Button: Font Import pressed");
             var fd = new FileDialog { Title = "Import Font", FileMode = FileDialog.FileModeEnum.OpenFile, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile) };
             fd.AddFilter("*.ttf,*.otf ; Font Files");
             void FdCleanup() { if (IsInstanceValid(fd)) fd.QueueFree(); }
@@ -408,7 +409,7 @@ partial class MainWindow
         };
 
         var closeBtn = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-        closeBtn.Pressed += () => window.BounceOutThenFree();
+        closeBtn.Pressed += () => { Log.Print("[UI] Button: Font Close pressed"); window.BounceOutThenFree(); };
         vbox.AddChild(closeBtn);
 
         LoadLocal(); ApplyFilter();
@@ -554,6 +555,7 @@ partial class MainWindow
             var previewBtn = new Button { Text = "Preview", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             previewBtn.Pressed += async () =>
             {
+                Log.Print("[UI] Button: Sound Preview pressed");
                 string? p = cPath;
                 if (p == null || !File.Exists(p))
                 {
@@ -568,6 +570,7 @@ partial class MainWindow
             var addBtn = new Button { Text = "Add", SizeFlagsHorizontal = SizeFlags.ExpandFill };
             addBtn.Pressed += async () =>
             {
+                Log.Print("[UI] Button: Sound Add pressed");
                 string? p = cPath;
                 if (p == null || !File.Exists(p))
                 {
@@ -614,6 +617,7 @@ partial class MainWindow
 
         importBtn.Pressed += () =>
         {
+            Log.Print("[UI] Button: Sound Import pressed");
             var fd = new FileDialog { Title = "Import Sound", FileMode = FileDialog.FileModeEnum.OpenFile, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile) };
             fd.AddFilter("*.mp3,*.wav,*.ogg,*.flac ; Audio Files");
             void FdCleanup() { if (IsInstanceValid(fd)) fd.QueueFree(); }
@@ -631,7 +635,7 @@ partial class MainWindow
         };
 
         var closeBtn = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-        closeBtn.Pressed += () => window.BounceOutThenFree();
+        closeBtn.Pressed += () => { Log.Print("[UI] Button: Sound Close pressed"); window.BounceOutThenFree(); };
         vbox.AddChild(closeBtn);
 
         LoadLocal(); ApplyFilter();
@@ -840,6 +844,7 @@ partial class MainWindow
             var selectBtn = new Button { Text = "Select", SizeFlagsVertical = SizeFlags.ShrinkCenter, FocusMode = FocusModeEnum.None };
             selectBtn.Pressed += () =>
             {
+                Log.Print("[UI] Button: Image Select pressed");
                 if (capturedPath != null && File.Exists(capturedPath))
                     AddImageClipToTimeline(capturedPath);
                 else if (capturedUrl != null)
@@ -877,6 +882,7 @@ partial class MainWindow
 
         importBtn.Pressed += () =>
         {
+            Log.Print("[UI] Button: Image Import pressed");
             var fd = new FileDialog { Title = "Import Image/GIF", FileMode = FileDialog.FileModeEnum.OpenFile, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile) };
             fd.AddFilter("*.png,*.gif,*.jpg,*.jpeg,*.webp ; Images");
             void FdCleanup() { if (IsInstanceValid(fd)) fd.QueueFree(); }
@@ -894,7 +900,7 @@ partial class MainWindow
         };
 
         var closeBtn = new Button { Text = "Close", SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-        closeBtn.Pressed += () => window.BounceOutThenFree();
+        closeBtn.Pressed += () => { Log.Print("[UI] Button: Image Close pressed"); window.BounceOutThenFree(); };
         vbox.AddChild(closeBtn);
 
         LoadLocal(); ApplyFilter();

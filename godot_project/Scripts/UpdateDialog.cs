@@ -101,6 +101,7 @@ public partial class UpdateDialog : Window
 
     private async void OnUpdateNow()
     {
+        Log.Print("[UPDATE] UpdateNow clicked");
         if (_downloading) return;
         _downloading = true;
         _updateBtn.Disabled = true;
@@ -154,6 +155,7 @@ public partial class UpdateDialog : Window
 
     private void OnLater()
     {
+        Log.Print("[UPDATE] UpdateLater clicked");
         AppConfig.SkipUpdateVersion = _info.LatestVersion;
         AppConfig.SaveSettings();
         Hide();

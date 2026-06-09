@@ -21,6 +21,7 @@ public partial class ConsoleDialog : Window
 
     public override void _Ready()
     {
+        Log.Print("[Console] _Ready");
         Theme = AppTheme.Create();
         var vbox = new VBoxContainer();
         vbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -38,12 +39,13 @@ public partial class ConsoleDialog : Window
 
         var toolbar = new HBoxContainer();
         var clearBtn = new Button { Text = "Clear" };
-        clearBtn.Pressed += () => _logView.Clear();
+        clearBtn.Pressed += () => { Log.Print("[Console] Clear pressed"); _logView.Clear(); };
         toolbar.AddChild(clearBtn);
 
         var copyBtn = new Button { Text = "Copy All" };
         copyBtn.Pressed += () =>
         {
+            Log.Print("[Console] Copy All pressed");
             var sb = new StringBuilder();
             foreach (var line in LogBuffer.GetLogs())
                 sb.AppendLine(line);
@@ -52,7 +54,7 @@ public partial class ConsoleDialog : Window
         toolbar.AddChild(copyBtn);
 
         var refreshBtn = new Button { Text = "Refresh" };
-        refreshBtn.Pressed += () => ReloadLogs();
+        refreshBtn.Pressed += () => { Log.Print("[Console] Refresh pressed"); ReloadLogs(); };
         toolbar.AddChild(refreshBtn);
 
         var autoScrollToggle = new CheckBox { Text = "Auto-scroll", ButtonPressed = true };
@@ -97,6 +99,7 @@ public partial class ConsoleDialog : Window
 
     private void OnNewLog(string line)
     {
+        Log.Print($"[Console] OnNewLog: {(line.Length > 80 ? line[..80] + "..." : line)}");
         Callable.From(() => AppendLine(line)).CallDeferred();
     }
 

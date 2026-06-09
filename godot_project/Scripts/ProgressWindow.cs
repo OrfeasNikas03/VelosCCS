@@ -12,6 +12,7 @@ public partial class ProgressWindow : Window
 
     public override void _Ready()
     {
+        VelosCCS.Log.Print("[Progress] _Ready");
         Title = "AI Clip Finder";
         Size = new Vector2I(420, 240);
         InitialPosition = WindowInitialPosition.CenterPrimaryScreen;
@@ -65,6 +66,7 @@ public partial class ProgressWindow : Window
 
     public void SetStep(string text)
     {
+        VelosCCS.Log.Print($"[Progress] SetStep {text}");
         _stepLabel.Text = text;
     }
 
@@ -75,6 +77,7 @@ public partial class ProgressWindow : Window
 
     public void SetProgressRange(double value, double max)
     {
+        VelosCCS.Log.Print($"[Progress] SetProgressRange value={value} max={max}");
         _progressBar.MaxValue = max;
         _progressBar.Value = Math.Clamp(value, 0, max);
     }
