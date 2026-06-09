@@ -53,7 +53,9 @@ public static class UpdateChecker
                     string name = asset.GetProperty("name").GetString() ?? "";
                     if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                     {
-                        downloadUrl = asset.GetProperty("browser_download_url").GetString();
+                        long assetId = asset.GetProperty("id").GetInt64();
+                        string baseApiUrl = AppConfig.UpdateRepoUrl.Substring(0, AppConfig.UpdateRepoUrl.LastIndexOf("/releases/", StringComparison.Ordinal));
+                        downloadUrl = $"{baseApiUrl}/assets/{assetId}";
                         break;
                     }
                 }
@@ -102,6 +104,7 @@ public static class UpdateChecker
         Log.Print("[Update] DownloadUpdate started");
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("VelosCCS");
+        request.Headers.Accept.ParseAdd("application/octet-stream");
         if (!string.IsNullOrEmpty(AppConfig.UpdateRepoToken))
             request.Headers.Add("Authorization", $"Bearer {AppConfig.UpdateRepoToken}");
 
