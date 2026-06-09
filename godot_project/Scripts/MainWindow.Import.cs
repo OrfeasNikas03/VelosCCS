@@ -450,15 +450,15 @@ public partial class MainWindow
 
 		var dialog = new AISetupDialog();
 		AddChild(dialog);
-		dialog.Proceed += (model, language) => _ = RunAIClipFinder(model, language);
+		dialog.Proceed += (model, language, maxHeight) => _ = RunAIClipFinder(model, language, maxHeight);
 		dialog.PopupCentered();
 	}
 
-	private async Task RunAIClipFinder(string model, string language)
+	private async Task RunAIClipFinder(string model, string language, int maxHeight = 720)
 	{
 		var totalSw = System.Diagnostics.Stopwatch.StartNew();
 
-		Log.Print($"AI Clip Finder: started with model={model}, language={language}, url={_lastStreamInfo.Url}");
+		Log.Print($"AI Clip Finder: started with model={model}, language={language}, maxHeight={maxHeight}p, url={_lastStreamInfo.Url}");
 		double vodDuration = _lastStreamInfo.Duration;
 		SystemResources.Log("AI finder: start");
 		GD.Print($"AI Clip Finder: VOD duration={vodDuration:F0}s ({(vodDuration/3600):F1}h)");
@@ -475,6 +475,14 @@ public partial class MainWindow
 		Directory.CreateDirectory(audioDir);
 		Directory.CreateDirectory(clipsDir);
 
+		// Derive a per-video filename so cached audio doesn't collide across videos
+		string videoId = "";
+		var idMatch = System.Text.RegularExpressions.Regex.Match(_lastStreamInfo.Url,
+			@"(?:v=|youtu\.be/|youtube\.com/embed/)([a-zA-Z0-9_-]{11})");
+		if (idMatch.Success)
+			videoId = "_" + idMatch.Groups[1].Value;
+		string audioBase = System.IO.Path.Combine(audioDir, $"vod_audio{videoId}");
+
 		try
 		{
 			// ── STEP 1: Audio-Only Extraction with live progress ──
@@ -487,7 +495,7 @@ public partial class MainWindow
 			GD.Print("AI Clip Finder: starting yt-dlp audio download with --newline progress");
 			audioFile = await Task.Run(() => sm.DownloadAudioWithProgress(
 				_lastStreamInfo.Url,
-				System.IO.Path.Combine(audioDir, "vod_audio"),
+				audioBase,
 				(pct, spd, eta) =>
 				{
 					string p = pct, s = spd, e = eta;
@@ -670,7 +678,7 @@ public partial class MainWindow
 							progressWin.SetProgress(baseProgress + clipFraction);
 							SetStatus($"Downloading clip {clipIdx}/{allDetectedClips.Count}: {pct}% ({spd})", Colors.Yellow);
 						}).CallDeferred();
-					});
+					}, maxHeight: maxHeight);
 
 				long fileBytes = new System.IO.FileInfo(outPath).Length;
 				totalDownloadedBytes += fileBytes;

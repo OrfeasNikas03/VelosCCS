@@ -9,7 +9,7 @@ namespace VelosCCS;
 public static class AppConfig
 {
     public const string AppName = "Velos Content Creation Suite";
-    public const string AppVersion = "4.0.6";
+    public const string AppVersion = "4.0.7";
 
     public static string WhisperModel => System.Environment.GetEnvironmentVariable("CLIPTOOL_WHISPER_MODEL") ?? "base";
     public static string WhisperDevice => System.Environment.GetEnvironmentVariable("CLIPTOOL_WHISPER_DEVICE") ?? "cpu";

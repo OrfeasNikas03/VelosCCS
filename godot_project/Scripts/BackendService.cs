@@ -130,14 +130,14 @@ public class BackendService
         }
     }
 
-    public string DownloadSection(string url, double start, double duration, string outputPath)
+    public string DownloadSection(string url, double start, double duration, string outputPath, int maxHeight = 720)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        Log.Print("[DL] BackendService.DownloadSection start");
+        Log.Print($"[DL] BackendService.DownloadSection start maxHeight={maxHeight}");
         try
         {
             var sm = new StreamManager();
-            var result = sm.DownloadSection(url, start, duration, outputPath);
+            var result = sm.DownloadSection(url, start, duration, outputPath, maxHeight);
             Log.Print($"[DL] BackendService.DownloadSection done in {sw.Elapsed.TotalSeconds:F1}s");
             return result;
         }

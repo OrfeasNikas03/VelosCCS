@@ -159,29 +159,35 @@ public class StreamManager
         }
     }
 
-    private static readonly string[] FormatFallbacks =
+    private static string[] GetFormatFallbacks(int maxHeight)
     {
-        "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]",
-        "bestvideo[height<=720]+bestaudio/best[height<=720]",
-        "best[height<=720]",
-        "best",
-    };
+        return new[]
+        {
+            $"bestvideo[height<={maxHeight}][ext=mp4]+bestaudio[ext=m4a]/best[height<={maxHeight}]",
+            $"bestvideo[height<={maxHeight}]+bestaudio/best[height<={maxHeight}]",
+            $"best[height<={maxHeight}]",
+            "best",
+            "b",
+        };
+    }
 
-    public string DownloadSection(string url, double start, double duration, string outputPath)
+    public string DownloadSection(string url, double start, double duration, string outputPath, int maxHeight = 720)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        Log.Print($"[DL] DownloadSection start: {url} [{FormatTime(start)}-{FormatTime(start+duration)}]");
+        Log.Print($"[DL] DownloadSection start: {url} [{FormatTime(start)}-{FormatTime(start+duration)}] maxHeight={maxHeight}");
         string ytDlp = FindYtDlp();
         string fmtStart = FormatTime(start);
         string fmtEnd = FormatTime(start + duration);
 
+        string[] fallbacks = GetFormatFallbacks(maxHeight);
         var errors = new System.Collections.Generic.List<string>();
-        foreach (var fmt in FormatFallbacks)
+        foreach (var fmt in fallbacks)
         {
             var psi = new ProcessStartInfo(ytDlp,
                 $"--download-sections \"*{fmtStart}-{fmtEnd}\" " +
                 $"-f \"{fmt}\" " +
-                $"-o \"{outputPath}\" --no-playlist --force-keyframes-at-cuts {url}")
+                $"-o \"{outputPath}\" --merge-output-format mp4 --no-playlist --force-keyframes-at-cuts " +
+                $"--postprocessor-args \"ffmpeg:-c:a aac -b:a 192k\" {url}")
             {
                 RedirectStandardOutput = false,
                 RedirectStandardError = true,
@@ -205,23 +211,25 @@ public class StreamManager
 
     public delegate void DownloadProgressCallback(string percent, string speed, string eta);
 
-    public async Task<string> DownloadSectionWithProgressAsync(string url, double start, double duration, string outputPath, DownloadProgressCallback? onProgress)
+    public async Task<string> DownloadSectionWithProgressAsync(string url, double start, double duration, string outputPath, DownloadProgressCallback? onProgress, int maxHeight = 720)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        Log.Print($"[DL] DownloadSectionWithProgress start: {url} [{FormatTime(start)}-{FormatTime(start+duration)}]");
+        Log.Print($"[DL] DownloadSectionWithProgress start: {url} [{FormatTime(start)}-{FormatTime(start+duration)}] maxHeight={maxHeight}");
         string ytDlp = FindYtDlp();
         string fmtStart = FormatTime(start);
         string fmtEnd = FormatTime(start + duration);
         GD.Print($"[StreamManager] DownloadSection start: {url} [{fmtStart}-{fmtEnd}] -> {outputPath}");
 
+        string[] fallbacks = GetFormatFallbacks(maxHeight);
         var errors = new System.Collections.Generic.List<string>();
-        foreach (var fmt in FormatFallbacks)
+        foreach (var fmt in fallbacks)
         {
             var stderrBuf = new System.Text.StringBuilder();
             var psi = new ProcessStartInfo(ytDlp,
                 $"--download-sections \"*{fmtStart}-{fmtEnd}\" " +
                 $"-f \"{fmt}\" " +
-                $"-o \"{outputPath}\" --newline --force-keyframes-at-cuts {url}")
+                $"-o \"{outputPath}\" --merge-output-format mp4 --newline --force-keyframes-at-cuts " +
+                $"--postprocessor-args \"ffmpeg:-c:a aac -b:a 192k\" {url}")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

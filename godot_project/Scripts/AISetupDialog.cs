@@ -8,11 +8,12 @@ namespace VelosCCS;
 public partial class AISetupDialog : Window
 {
     [Signal]
-    public delegate void ProceedEventHandler(string model, string language);
+    public delegate void ProceedEventHandler(string model, string language, int maxHeight);
 
     private Label _statusLabel = null!;
     private ItemList _modelList = null!;
     private OptionButton _languageDropdown = null!;
+    private OptionButton _resolutionDropdown = null!;
     private Button _actionBtn = null!;
     private Button _cancelBtn = null!;
     private ProgressBar _dlProgress = null!;
@@ -47,10 +48,12 @@ public partial class AISetupDialog : Window
         ["Vietnamese"] = "vi", ["Yiddish"] = "yi", ["Yoruba"] = "yo", ["Cantonese"] = "yue",
     };
 
+    private LineEdit _clipOutputDir = null!;
+
     public override void _Ready()
     {
         Title = "AI Clip Finder";
-        Size = new Vector2I(500, 520);
+        Size = new Vector2I(500, 580);
         InitialPosition = WindowInitialPosition.CenterPrimaryScreen;
         Exclusive = true;
         Transient = true;
@@ -88,6 +91,58 @@ public partial class AISetupDialog : Window
         }
         _languageDropdown.Selected = selLang;
         vbox.AddChild(_languageDropdown);
+        vbox.AddChild(new HSeparator());
+        var resLabel = new Label { Text = "Resolution", Modulate = Color.FromHtml("#D0570C") };
+        vbox.AddChild(resLabel);
+        _resolutionDropdown = new OptionButton();
+        _resolutionDropdown.AddItem("4K  (2160p)");
+        _resolutionDropdown.SetItemMetadata(0, 2160);
+        _resolutionDropdown.AddItem("1080p");
+        _resolutionDropdown.SetItemMetadata(1, 1080);
+        _resolutionDropdown.AddItem("720p");
+        _resolutionDropdown.SetItemMetadata(2, 720);
+        _resolutionDropdown.AddItem("480p");
+        _resolutionDropdown.SetItemMetadata(3, 480);
+        _resolutionDropdown.AddItem("360p");
+        _resolutionDropdown.SetItemMetadata(4, 360);
+        _resolutionDropdown.Selected = 2;
+        vbox.AddChild(_resolutionDropdown);
+
+        vbox.AddChild(new HSeparator());
+
+        var clipDirLabel = new Label { Text = "Clip Output Folder", Modulate = Color.FromHtml("#D0570C") };
+        vbox.AddChild(clipDirLabel);
+        var clipDirRow = new HBoxContainer();
+        _clipOutputDir = new LineEdit
+        {
+            Text = !string.IsNullOrEmpty(AppConfig.ClipOutputDir)
+                ? AppConfig.ClipOutputDir.Replace('/', System.IO.Path.DirectorySeparatorChar)
+                : ProjectSettings.GlobalizePath("user://clips/"),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        clipDirRow.AddChild(_clipOutputDir);
+        var clipBrowseBtn = new Button { Text = "Browse" };
+        clipBrowseBtn.Pressed += () =>
+        {
+            Log.Print("[UI] AISetupDialog: Browse clip output dir");
+            var fd = new FileDialog
+            {
+                FileMode = FileDialog.FileModeEnum.OpenDir,
+                Access = FileDialog.AccessEnum.Filesystem,
+                UseNativeDialog = true,
+                CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+            };
+            fd.DirSelected += path =>
+            {
+                _clipOutputDir.Text = path.Replace('/', System.IO.Path.DirectorySeparatorChar);
+                AppConfig.ClipOutputDir = _clipOutputDir.Text;
+                AppConfig.SaveSettings();
+            };
+            AddChild(fd);
+            fd.PopupCentered();
+        };
+        clipDirRow.AddChild(clipBrowseBtn);
+        vbox.AddChild(clipDirRow);
 
         vbox.AddChild(new HSeparator());
         var modelLabel = new Label { Text = "LLM Model", Modulate = Color.FromHtml("#D0570C") };
@@ -154,7 +209,10 @@ public partial class AISetupDialog : Window
         int sel = _modelList.GetSelectedItems().Length > 0 ? _modelList.GetSelectedItems()[0] : 0;
         string model = LlamaManager.ModelOptions[sel].name;
         string language = (string)_languageDropdown.GetItemMetadata(_languageDropdown.Selected);
-        Log.Print($"[UI] AISetupDialog: Action - {model}/{language}");
+        int maxHeight = (int)_resolutionDropdown.GetItemMetadata(_resolutionDropdown.Selected);
+        Log.Print($"[UI] AISetupDialog: Action - {model}/{language} res={maxHeight}p");
+        AppConfig.ClipOutputDir = _clipOutputDir.Text.Replace('/', System.IO.Path.DirectorySeparatorChar);
+        AppConfig.SaveSettings();
 
         if (!LlamaManager.IsModelDownloaded(model))
         {
@@ -192,7 +250,7 @@ public partial class AISetupDialog : Window
         LlamaManager.SetDetectedModel(model);
 
         Exclusive = false;
-        EmitSignal(SignalName.Proceed, model, language);
+        EmitSignal(SignalName.Proceed, model, language, maxHeight);
         this.BounceOutThenFree();
     }
 }
