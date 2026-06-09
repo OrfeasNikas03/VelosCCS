@@ -143,7 +143,7 @@ public partial class TimelineControl : Control
 	}
 
 	public void SetDuration(double d) { Log.Print($"[Timeline] SetDuration {d}"); Duration = Math.Max(d, 1); QueueRedraw(); }
-	public void SetPlayhead(double t) { Log.Print($"[Timeline] SetPlayhead {t}"); PlayheadPos = t; QueueRedraw(); }
+	public void SetPlayhead(double t) { PlayheadPos = t; QueueRedraw(); }
 
 	public void SyncSelectionToPlayhead()
 	{

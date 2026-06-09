@@ -426,6 +426,7 @@ partial class MainWindow
             Size = new Vector2I(700, 750),
             InitialPosition = Window.WindowInitialPosition.CenterPrimaryScreen,
             Transient = true, Exclusive = true,
+            Theme = AppTheme.Create(),
         };
         window.CloseRequested += () => window.BounceOutThenFree();
 

@@ -776,7 +776,6 @@ public partial class OutputPreview : VBoxContainer
 				label.LabelSettings = ls;
 				return label;
 			case ClipType.Image:
-			case ClipType.Gif:
 				if (string.IsNullOrEmpty(clip.FilePath) || !System.IO.File.Exists(clip.FilePath)) return null;
 				var img = Image.LoadFromFile(clip.FilePath);
 				if (img == null || img.IsEmpty())
@@ -802,6 +801,18 @@ public partial class OutputPreview : VBoxContainer
 					StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
 					MouseFilter = MouseFilterEnum.Ignore,
 				};
+			case ClipType.Gif:
+				if (string.IsNullOrEmpty(clip.FilePath) || !System.IO.File.Exists(clip.FilePath)) return null;
+				var gifData = GifCache.GetOrCreate(clip.FilePath);
+				if (gifData?.Textures == null || gifData.Textures.Length == 0) return null;
+				var gifRect = new GifTextureRect
+				{
+					ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+					StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+					MouseFilter = MouseFilterEnum.Ignore,
+				};
+				gifRect.Play(gifData);
+				return gifRect;
 			default:
 				return null;
 		}

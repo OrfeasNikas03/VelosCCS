@@ -83,7 +83,7 @@ public partial class MainWindow
 			.FirstOrDefault(c => currentPos >= c.Start && currentPos < c.End);
 
 		var activeAudioClip = _tracks
-			.Where(t => t.Type == TrackType.Audio)
+			.Where(t => t.Name == "Source Audio")
 			.SelectMany(t => t.Clips)
 			.FirstOrDefault(c => currentPos >= c.Start && currentPos < c.End);
 
@@ -114,9 +114,19 @@ public partial class MainWindow
 			}
 		}
 
-		// Smooth volume transitions to avoid crackling
+		// Mute video player audio while any SFX clip overlaps so SFX is clearly audible
+		bool hasActiveSfx = _tracks
+			.Where(t => t.Name != "Source Audio" && t.Type == TrackType.Audio)
+			.SelectMany(t => t.Clips)
+			.Any(c => currentPos >= c.Start && currentPos < c.End);
+
+		// Smooth volume transitions via tween to avoid crackling
 		float targetDb;
-		if (activeAudioClip != null)
+		if (hasActiveSfx)
+		{
+			targetDb = -80;
+		}
+		else if (activeAudioClip != null)
 		{
 			float vol = activeAudioClip.Volume.StaticValue;
 			targetDb = Mathf.LinearToDb(Mathf.Clamp(vol, 0.001f, 2f));
@@ -125,11 +135,13 @@ public partial class MainWindow
 		{
 			targetDb = -80;
 		}
-		float currentDb = _videoPlayer.VolumeDb;
-		if (Math.Abs(currentDb - targetDb) > 1f)
-			_videoPlayer.VolumeDb = Mathf.Lerp(currentDb, targetDb, 0.3f);
-		else
-			_videoPlayer.VolumeDb = targetDb;
+		if (Math.Abs(_videoPlayer.VolumeDb - targetDb) > 1f)
+		{
+			if (_volumeTween != null && _volumeTween.IsValid())
+				_volumeTween.Kill();
+			_volumeTween = CreateTween();
+			_volumeTween.TweenProperty(_videoPlayer, "volume_db", targetDb, 0.05).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Linear);
+		}
 	}
 
 	// Load a different video file into the video player and seek to given position

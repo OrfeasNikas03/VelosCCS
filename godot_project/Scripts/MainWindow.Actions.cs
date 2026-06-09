@@ -975,7 +975,7 @@ public partial class MainWindow
 					FontColor = Colors.White,
 					OutlineColor = Colors.Black,
 					OutlineWidth = 4,
-					Position = new Vector2(0.5f, 0.85f),
+					Position = new Vector2(0.1f, 0.79f),
 					Size = new Vector2(0.8f, 0.12f),
 				};
 				textTrack.Clips.Add(clip);
@@ -1161,38 +1161,31 @@ public partial class MainWindow
 				}
 			}
 
-			// Build export directory
-			string outputDir = ExportOutputDir;
-			if (string.IsNullOrEmpty(outputDir))
-				outputDir = AppConfig.ExportOutputDir;
-			if (string.IsNullOrEmpty(outputDir))
+			// Build export directory — always show picker
+			string? chosenDir = null;
+			string previousDir = !string.IsNullOrEmpty(ExportOutputDir) ? ExportOutputDir : AppConfig.ExportOutputDir;
+			var fd = new FileDialog
 			{
-				string? chosenDir = null;
-				var fd = new FileDialog
-				{
-					Title = "Choose export output folder",
-					FileMode = FileDialog.FileModeEnum.OpenDir,
-					Access = FileDialog.AccessEnum.Filesystem,
-					UseNativeDialog = true,
-					CurrentDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
-				};
-				fd.DirSelected += path => chosenDir = path;
-				AddChild(fd);
-				fd.PopupCentered();
-				await ToSignal(fd, "popup_hide");
-				fd.QueueFree();
-				if (string.IsNullOrEmpty(chosenDir))
-				{
-					SetStatus("Export cancelled — no output folder selected", Colors.Red);
-					return;
-				}
-				outputDir = chosenDir;
-				ExportOutputDir = chosenDir;
-				AppConfig.ExportOutputDir = chosenDir;
-				AppConfig.SaveSettings();
+				Title = "Choose export output folder",
+				FileMode = FileDialog.FileModeEnum.OpenDir,
+				Access = FileDialog.AccessEnum.Filesystem,
+				UseNativeDialog = true,
+				CurrentDir = !string.IsNullOrEmpty(previousDir) ? previousDir : System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+			};
+			fd.DirSelected += path => chosenDir = path;
+			AddChild(fd);
+			fd.PopupCentered();
+			await ToSignal(fd, "popup_hide");
+			fd.QueueFree();
+			if (string.IsNullOrEmpty(chosenDir))
+			{
+				SetStatus("Export cancelled — no output folder selected", Colors.Red);
+				return;
 			}
-			if (string.IsNullOrEmpty(outputDir))
-				outputDir = AppConfig.OutputDir;
+			string outputDir = chosenDir;
+			ExportOutputDir = chosenDir;
+			AppConfig.ExportOutputDir = chosenDir;
+			AppConfig.SaveSettings();
 			System.IO.Directory.CreateDirectory(outputDir);
 
 			// Generate ASS captions if transcript is available
@@ -1361,10 +1354,10 @@ public partial class MainWindow
 		};
 	}
 
-	private async void RunBackgroundUpdateCheck()
+	private async void RunBackgroundUpdateCheck(bool force = false)
 	{
 		Log.Print("[UI] RunBackgroundUpdateCheck");
-		if (!UpdateChecker.ShouldCheck()) return;
+		if (!UpdateChecker.ShouldCheck(force)) return;
 
 		var info = await UpdateChecker.CheckAsync(AppConfig.AppVersion);
 		AppConfig.LastUpdateCheck = DateTime.UtcNow;
@@ -1374,6 +1367,10 @@ public partial class MainWindow
 			AppConfig.LastUpdateVersion = info.LatestVersion;
 			AppConfig.SaveSettings();
 			ToastManager.Info(this, $"Update v{info.LatestVersion} available \u2014 check Settings");
+		}
+		else if (force)
+		{
+			ToastManager.Info(this, "You're up to date!");
 		}
 	}
 }

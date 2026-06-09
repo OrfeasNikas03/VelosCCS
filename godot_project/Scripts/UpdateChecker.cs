@@ -30,8 +30,6 @@ public static class UpdateChecker
         {
             var request = new HttpRequestMessage(HttpMethod.Get, AppConfig.UpdateRepoUrl);
             request.Headers.UserAgent.ParseAdd("VelosCCS");
-            if (!string.IsNullOrEmpty(AppConfig.UpdateRepoToken))
-                request.Headers.Add("Authorization", $"Bearer {AppConfig.UpdateRepoToken}");
 
             using var response = await _http.SendAsync(request);
             response.EnsureSuccessStatusCode();
@@ -105,8 +103,6 @@ public static class UpdateChecker
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.ParseAdd("VelosCCS");
         request.Headers.Accept.ParseAdd("application/octet-stream");
-        if (!string.IsNullOrEmpty(AppConfig.UpdateRepoToken))
-            request.Headers.Add("Authorization", $"Bearer {AppConfig.UpdateRepoToken}");
 
         using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
@@ -142,11 +138,27 @@ public static class UpdateChecker
 
         try
         {
+            string appPath = OS.GetExecutablePath();
+            string tempDir = System.IO.Path.GetTempPath();
+            string batPath = System.IO.Path.Combine(tempDir, "VelosCCS_UpdateReopen.bat");
+
+            // Write a batch script that waits for the installer to finish, then relaunches the app
+            System.IO.File.WriteAllText(batPath,
+                $"@echo off\r\n" +
+                $"tasklist /FI \"IMAGENAME eq {System.IO.Path.GetFileName(installerPath)}\" 2>nul | find /I \"{System.IO.Path.GetFileName(installerPath)}\" >nul\r\n" +
+                $"if errorlevel 1 (\r\n" +
+                $"  start \"\" /WAIT \"{installerPath}\" /VERYSILENT /SUPPRESSMSGBOXES\r\n" +
+                $") else (\r\n" +
+                $"  start \"\" /WAIT \"{installerPath}\" /VERYSILENT /SUPPRESSMSGBOXES\r\n" +
+        ")\r\n" +
+                $"start \"\" \"{appPath}\" --updated\r\n");
+
             var psi = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = installerPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+                FileName = "cmd.exe",
+                Arguments = $"/c \"{batPath}\"",
                 UseShellExecute = true,
+                CreateNoWindow = true,
             };
             System.Diagnostics.Process.Start(psi);
             GetTree().Quit();
@@ -157,8 +169,9 @@ public static class UpdateChecker
         }
     }
 
-    public static bool ShouldCheck()
+    public static bool ShouldCheck(bool force = false)
     {
+        if (force) return true;
         if (AppConfig.LastUpdateCheck == null)
             return true;
         return (DateTime.UtcNow - AppConfig.LastUpdateCheck.Value).TotalHours > 24;

@@ -19,6 +19,13 @@ public partial class MainWindow
 
 	private string _lastClipboardUrl = "";
 
+	private static string SanitizeFileName(string name)
+	{
+		foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+			name = name.Replace(c, '_');
+		return name.Replace(" ", "_").ToLowerInvariant();
+	}
+
 	// Poll clipboard for YouTube/Twitch links, auto-fetch metadata
 	private void PollClipboard()
 	{
@@ -261,8 +268,8 @@ public partial class MainWindow
 					FontColor = Colors.White,
 					OutlineColor = Colors.Black,
 					OutlineWidth = 4,
-					Position = new Vector2(0.1f, 0.85f),
-					Size = new Vector2(0.8f, 0.12f),
+					Position = new Vector2(0.0f, 0.79f),
+					Size = new Vector2(1.0f, 0.12f),
 				};
 				captionsTrack.Clips.Add(clip);
 				UpdateTracks();
@@ -437,7 +444,7 @@ public partial class MainWindow
 		var picker = new ClipPickerWindow();
 		AddChild(picker);
 		picker.Setup(_lastStreamInfo.Title, _lastStreamInfo.Duration, _lastStreamInfo.Thumbnail);
-		picker.DownloadRequested += (fragments) => ProcessDownloads(_lastStreamInfo.Url, fragments);
+		picker.DownloadRequested += (fragments) => ProcessDownloads(_lastStreamInfo.Url, _lastStreamInfo.Title, fragments);
 		picker.PopupCentered();
 		this.LogSizes("OnSelectClips");
 	}
@@ -473,7 +480,14 @@ public partial class MainWindow
 			? AppConfig.ClipOutputDir
 			: ProjectSettings.GlobalizePath("user://clips/");
 		Directory.CreateDirectory(audioDir);
-		Directory.CreateDirectory(clipsDir);
+
+		// Create per-video output folder: {ClipOutputDir}/{platform}-{title}-{date}/
+		string platform = "";
+		try { platform = new System.Uri(_lastStreamInfo.Url).Host.Replace("www.", "").Split('.')[0]; } catch { }
+		string videoTitle = SanitizeFileName(_lastStreamInfo.Title);
+		string date = System.DateTime.UtcNow.ToString("yyyy-MM-dd");
+		string videoDir = System.IO.Path.Combine(clipsDir, $"{platform}-{videoTitle}-{date}");
+		Directory.CreateDirectory(videoDir);
 
 		// Derive a per-video filename so cached audio doesn't collide across videos
 		string videoId = "";
@@ -661,7 +675,7 @@ public partial class MainWindow
 			{
 				c++;
 				double dur = cEnd - cStart;
-				string outPath = System.IO.Path.Combine(clipsDir, $"vod_clip_{c}.mp4");
+				string outPath = System.IO.Path.Combine(videoDir, $"{videoTitle}-clip{c}.mp4");
 				GD.Print($"AI Clip Finder: downloading clip {c}/{allDetectedClips.Count}: start={cStart:F1}s dur={dur:F1}s -> {outPath}");
 
 				// Use async progress-tracking download
@@ -744,7 +758,7 @@ public partial class MainWindow
 	}
 
 	// Call backend to download YouTube fragments, add resulting clips to project bin
-	private async void ProcessDownloads(string url, Godot.Collections.Array<Godot.Collections.Dictionary> fragments)
+	private async void ProcessDownloads(string url, string title, Godot.Collections.Array<Godot.Collections.Dictionary> fragments)
 	{
 		Log.Print($"[DL] ProcessDownloads: {url}, {fragments.Count} fragments");
 		SwitchToState(ViewState.Layout);
@@ -755,7 +769,12 @@ public partial class MainWindow
 			string outputDir = !string.IsNullOrEmpty(AppConfig.ClipOutputDir)
 				? AppConfig.ClipOutputDir
 				: ProjectSettings.GlobalizePath("user://clips/");
-			Directory.CreateDirectory(outputDir);
+			string platform = "";
+			try { platform = new System.Uri(url).Host.Replace("www.", "").Split('.')[0]; } catch { }
+			string videoTitle = SanitizeFileName(title);
+			string date = System.DateTime.UtcNow.ToString("yyyy-MM-dd");
+			string videoDir = System.IO.Path.Combine(outputDir, $"{platform}-{videoTitle}-{date}");
+			Directory.CreateDirectory(videoDir);
 			int i = 0;
 			foreach (var frag in fragments)
 			{
@@ -763,7 +782,7 @@ public partial class MainWindow
 				double start = frag["start"].As<double>();
 				double end = frag["end"].As<double>();
 				double dur = end - start;
-				string outPath = System.IO.Path.Combine(outputDir, $"download_clip_{i}.mp4");
+				string outPath = System.IO.Path.Combine(videoDir, $"{videoTitle}-sel{i}.mp4");
 				_backendService.DownloadSection(url, start, dur, outPath);
 				_projectBin.Add(new MediaAsset($"Clip {i}", outPath, AssetType.Video, dur));
 			}

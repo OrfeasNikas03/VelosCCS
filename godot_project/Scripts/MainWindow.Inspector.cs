@@ -209,6 +209,8 @@ public partial class MainWindow
 			AddGridField(audioGrid, "Volume", clip.Volume.StaticValue, 0f, 2f, 0.01f, v =>
 			{
 				clip.Volume.StaticValue = v;
+				if (_activeSfxPlayers.TryGetValue(clip, out var player))
+					player.VolumeDb = Mathf.LinearToDb(Mathf.Clamp(v, 0.001f, 2f));
 			});
 		}
 

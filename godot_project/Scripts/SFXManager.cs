@@ -40,8 +40,9 @@ public partial class SFXManager : Node
             return null;
         }
 
-        string localPath = $"{SFXDir}{name.Replace(" ", "_").ToLower()}.mp3";
-        if (FileAccess.FileExists(localPath))
+        string sfxDir = ProjectSettings.GlobalizePath("user://sfx/");
+        string localPath = System.IO.Path.Combine(sfxDir, $"{name.Replace(" ", "_").ToLower()}.mp3");
+        if (System.IO.File.Exists(localPath))
         {
             Log.Print($"[SFX] DownloadSFX: {name} already cached at {localPath}");
             return localPath;
@@ -50,8 +51,7 @@ public partial class SFXManager : Node
         try
         {
             byte[] data = await _httpClient.GetByteArrayAsync(url);
-            using var file = FileAccess.Open(localPath, FileAccess.ModeFlags.Write);
-            file.StoreBuffer(data);
+            System.IO.File.WriteAllBytes(localPath, data);
             Log.Print($"[SFX] DownloadSFX: {name} downloaded to {localPath}");
             return localPath;
         }

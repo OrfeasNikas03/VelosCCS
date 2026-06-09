@@ -20,6 +20,7 @@ public partial class MainWindow : Control
 	private BackendService _backendService = new();
 	private FontManager _fontManager = new();
 	private SFXManager _sfxManager = new();
+	private Tween? _volumeTween;
 	private AudioStreamPlayer _sfxPreviewPlayer = new();
 	private string? _videoPath;
 	private double _videoDuration;
@@ -147,7 +148,7 @@ public partial class MainWindow : Control
 		SwitchToState(ViewState.Import);
 
 		CallDeferred(nameof(ForceLayoutUpdate));
-		CallDeferred(nameof(RunBackgroundUpdateCheck));
+		CallDeferred(nameof(RunBackgroundUpdateCheck), false);
 		// Start test server for AI-driven testing
 		AddChild(new TestServer());
 
@@ -1057,6 +1058,7 @@ public partial class MainWindow : Control
 		_fileDialog = new FileDialog { FileMode = FileDialog.FileModeEnum.OpenFile, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, CurrentDir = homeDir };
 		_fileDialog.AddFilter("*.mp4,*.mov,*.avi,*.mkv,*.webm ; Video Files");
 		_fileDialog.AddFilter("*.mp3,*.wav,*.ogg,*.flac ; Audio Files");
+		_fileDialog.AddFilter("*.png,*.jpg,*.jpeg,*.gif,*.webp,*.bmp ; Image Files");
 		_fileDialog.FileSelected += ImportFileToBin;
 		AddChild(_fileDialog);
 
@@ -1253,23 +1255,23 @@ public partial class MainWindow : Control
 		{
 			_layoutPlayBtn.Visible = false;
 		}
-		// Sidebar always visible; slide panel starts closed
-		_slideOpen = false;
-		_slideWrapper.CustomMinimumSize = new Vector2(0, 0);
+		// Sidebar always visible; slide panel opens automatically
+		_slideOpen = true;
+		_slideWrapper.CustomMinimumSize = new Vector2(240, 0);
 		_toggleBtn.Visible = (state != ViewState.Import);
 		_slideTabs.Visible = (state == ViewState.Edit);
 		if (state == ViewState.Layout)
 		{
 			_mediaPanel.Visible = false;
 			_inspectorPanel.Visible = true;
-			_toggleBtn.Text = "Layout \u25B6";
+			_toggleBtn.Text = "Layout \u25C2";
 		}
 		else if (state == ViewState.Edit)
 		{
 			_mediaPanel.Visible = true;
 			_inspectorPanel.Visible = false;
 			_slideMediaTab.ButtonPressed = true;
-			_toggleBtn.Text = "Media \u25B6";
+			_toggleBtn.Text = "Media \u25C2";
 		}
 		_exportBtn.Visible = (state == ViewState.Edit);
 		_continueBtn.Visible = (state == ViewState.Layout);

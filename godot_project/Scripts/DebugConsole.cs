@@ -8,6 +8,9 @@ namespace VelosCCS;
 public static class DebugConsole
 {
     private static bool _isOpen;
+    private static ConsoleCtrlHandlerDelegate? _ctrlHandler;
+
+    private delegate bool ConsoleCtrlHandlerDelegate(int dwCtrlType);
 
     [DllImport("kernel32.dll")]
     private static extern bool AllocConsole();
@@ -18,11 +21,15 @@ public static class DebugConsole
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetConsoleWindow();
 
+    [DllImport("kernel32.dll")]
+    private static extern bool SetConsoleCtrlHandler(ConsoleCtrlHandlerDelegate? handler, bool add);
+
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     private const int SW_HIDE = 0;
     private const int SW_SHOW = 5;
+    private const int CTRL_CLOSE_EVENT = 2;
 
     public static void Toggle()
     {
@@ -38,6 +45,8 @@ public static class DebugConsole
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             AllocConsole();
+            _ctrlHandler = type => type == CTRL_CLOSE_EVENT;
+            SetConsoleCtrlHandler(_ctrlHandler, true);
             var writer = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
             Console.SetOut(writer);
             Console.SetError(writer);
@@ -56,6 +65,9 @@ public static class DebugConsole
         if (!_isOpen) return;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
+            if (_ctrlHandler != null)
+                SetConsoleCtrlHandler(_ctrlHandler, false);
+            _ctrlHandler = null;
             var hWnd = GetConsoleWindow();
             if (hWnd != IntPtr.Zero)
                 ShowWindow(hWnd, SW_HIDE);
