@@ -20,36 +20,51 @@ public partial class MainWindow
 		{
 			if (idx < _tracks[t].Clips.Count)
 			{
-				_selTrackIdx = t;
-				_selClipIdx = idx;
-				var clip = _tracks[t].Clips[idx];
-				var trackName = _tracks[t].Name;
-
-				// Camera/UI track clips show PiP handles on source monitor
-				if (trackName is "Camera" or "Basic Facecam")
-				{
-					var cam = _outputPreview.GetCameraTarget();
-					_overlay.SetPipEditing(trackName, new Vector2(cam[0], cam[1]), new Vector2(cam[2], cam[3]));
-					_outputPreview.SelectDisplayLayer(clip);
-					RebuildInspector();
-					return;
-				}
-				if (trackName == "UI Content")
-				{
-					var ui = _outputPreview.GetUiTarget();
-					_overlay.SetPipEditing(trackName, new Vector2(ui[0], ui[1]), new Vector2(ui[2], ui[3]));
-					_outputPreview.SelectDisplayLayer(clip);
-					RebuildInspector();
-					return;
-				}
-
-				_overlay.SelectLayer(t, idx, clip);
-				_outputPreview.SelectDisplayLayer(clip);
-				RebuildInspector();
+				OnSelectClip(t, idx);
 				return;
 			}
 			idx -= _tracks[t].Clips.Count;
 		}
+	}
+
+	// Select a clip by track and clip index (used by timeline, overlay, and preview)
+	private void OnSelectClip(int ti, int ci)
+	{
+		_selTrackIdx = ti;
+		_selClipIdx = ci;
+		var clip = _tracks[ti].Clips[ci];
+		var trackName = _tracks[ti].Name;
+
+		// Compute flat index for timeline
+		int flatIdx = 0;
+		for (int t = 0; t < _tracks.Count; t++)
+		{
+			if (t < ti) { flatIdx += _tracks[t].Clips.Count; continue; }
+			flatIdx += ci;
+			break;
+		}
+		_timeline.SelectAndSeek(flatIdx, clip.Start);
+
+		if (trackName is "Camera" or "Basic Facecam")
+		{
+			var cam = _outputPreview.GetCameraTarget();
+			_overlay.SetPipEditing(trackName, new Vector2(cam[0], cam[1]), new Vector2(cam[2], cam[3]));
+			_outputPreview.SelectDisplayLayer(clip);
+			RebuildInspector();
+			return;
+		}
+		if (trackName == "UI Content")
+		{
+			var ui = _outputPreview.GetUiTarget();
+			_overlay.SetPipEditing(trackName, new Vector2(ui[0], ui[1]), new Vector2(ui[2], ui[3]));
+			_outputPreview.SelectDisplayLayer(clip);
+			RebuildInspector();
+			return;
+		}
+
+		_overlay.SelectLayer(ti, ci, clip);
+		_outputPreview.SelectDisplayLayer(clip);
+		RebuildInspector();
 	}
 
 	private void ApplyLayoutPreset(string name)

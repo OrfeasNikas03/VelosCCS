@@ -40,16 +40,6 @@ public partial class OutputPreview : VBoxContainer
 	private const float HandleSize = 10f;
 	private const float HandleGrab = 14f;
 
-	// Text editing in preview
-	private LineEdit _textEditor = null!;
-	private (int ti, int ci)? _editingClip;
-	public Action<(int ti, int ci, string text)>? TextEdited;
-
-	// Image rotation controls
-	private HBoxContainer _rotationBar = null!;
-	private Label _rotationLabel = null!;
-	public Action<(int ti, int ci, float rotation)>? RotationChanged;
-
 	// Display-only layers (result monitor mirror)
 	private Control _displayOverlay = null!;
 	private List<TrackData> _displayTracks = new();
@@ -176,75 +166,6 @@ public partial class OutputPreview : VBoxContainer
 		_displayOverlay = new Control { MouseFilter = MouseFilterEnum.Ignore };
 		_container.AddChild(_displayOverlay);
 		_displayOverlay.SetAnchorsPreset(LayoutPreset.FullRect);
-
-		_textEditor = new LineEdit
-		{
-			PlaceholderText = "Edit text...",
-			Visible = false,
-			ZIndex = 10,
-		};
-		_textEditor.TextSubmitted += text =>
-		{
-			if (_editingClip != null)
-			{
-				TextEdited?.Invoke((_editingClip.Value.ti, _editingClip.Value.ci, text));
-				_editingClip = null;
-			}
-			_textEditor.Visible = false;
-		};
-		_textEditor.FocusExited += () =>
-		{
-			if (_editingClip != null && _textEditor.Text.Length > 0)
-			{
-				TextEdited?.Invoke((_editingClip.Value.ti, _editingClip.Value.ci, _textEditor.Text));
-			}
-			_editingClip = null;
-			_textEditor.Visible = false;
-		};
-		_container.AddChild(_textEditor);
-
-		_rotationBar = new HBoxContainer
-		{
-			Visible = false,
-			ZIndex = 10,
-			Modulate = new Color(1, 1, 1, 0.85f),
-		};
-		var rotLeft = new Button { Text = "↺", CustomMinimumSize = new Vector2(32, 28), TooltipText = "Rotate left" };
-		rotLeft.Pressed += () =>
-		{
-			if (_displayActiveClip != null)
-			{
-				float newRot = (_displayActiveClip.Rotation.StaticValue - 15f) % 360f;
-				if (newRot < 0) newRot += 360f;
-				_rotationLabel.Text = $"{(int)newRot}°";
-				FindActiveClipAndNotify(newRot);
-			}
-		};
-		_rotationBar.AddChild(rotLeft);
-		_rotationLabel = new Label { Text = "0°", CustomMinimumSize = new Vector2(40, 28), HorizontalAlignment = HorizontalAlignment.Center };
-		_rotationBar.AddChild(_rotationLabel);
-		var rotRight = new Button { Text = "↻", CustomMinimumSize = new Vector2(32, 28), TooltipText = "Rotate right" };
-		rotRight.Pressed += () =>
-		{
-			if (_displayActiveClip != null)
-			{
-				float newRot = (_displayActiveClip.Rotation.StaticValue + 15f) % 360f;
-				_rotationLabel.Text = $"{(int)newRot}°";
-				FindActiveClipAndNotify(newRot);
-			}
-		};
-		_rotationBar.AddChild(rotRight);
-		var rotReset = new Button { Text = "↺ Reset", CustomMinimumSize = new Vector2(60, 28), TooltipText = "Reset rotation" };
-		rotReset.Pressed += () =>
-		{
-			if (_displayActiveClip != null)
-			{
-				_rotationLabel.Text = "0°";
-				FindActiveClipAndNotify(0f);
-			}
-		};
-		_rotationBar.AddChild(rotReset);
-		_container.AddChild(_rotationBar);
 
 		var timer = new Timer { WaitTime = 0.05, Autostart = true };
 		timer.Timeout += () =>
@@ -398,59 +319,6 @@ public partial class OutputPreview : VBoxContainer
 
 	private void OnInteractionInput(InputEvent ev)
 	{
-		if (ev is InputEventMouseButton mb && mb.DoubleClick && mb.ButtonIndex == MouseButton.Left)
-		{
-			// Double-click: check for text clips at cursor position (works in all states)
-			var ds = _displayOverlay.Size;
-			if (ds.X > 5 && ds.Y > 5)
-			{
-				foreach (var (key, node) in _displayLayerNodes)
-				{
-					var (ti, ci) = key;
-					if (ti >= _displayTracks.Count || ci >= _displayTracks[ti].Clips.Count) continue;
-					var clip = _displayTracks[ti].Clips[ci];
-					if (clip.ClipType != ClipType.Text) continue;
-					var rect = new Rect2(node.Position, node.Size);
-					float clipRot = clip.Rotation.GetValueAt(0);
-					bool hit;
-					if (Math.Abs(clipRot) > 0.5f)
-					{
-						var center = node.Position + node.Size * 0.5f;
-						var local = mb.Position - center;
-						float rad = Mathf.DegToRad(-clipRot);
-						float cos = Mathf.Cos(rad), sin = Mathf.Sin(rad);
-						var unrot = new Vector2(local.X * cos - local.Y * sin, local.X * sin + local.Y * cos);
-						hit = new Rect2(-node.Size * 0.5f, node.Size).HasPoint(unrot);
-					}
-					else
-					{
-						hit = rect.HasPoint(mb.Position);
-					}
-					if (hit)
-					{
-						_editingClip = (ti, ci);
-						_textEditor.Text = clip.Text;
-						_textEditor.Size = node.Size;
-						_textEditor.Position = node.Position;
-						_textEditor.Visible = true;
-						_textEditor.CallDeferred("grab_focus");
-						_textEditor.CaretColumn = _textEditor.Text.Length;
-						return;
-					}
-				}
-			}
-		}
-		// Dismiss text editor on any click outside it
-		if (ev is InputEventMouseButton mbClick && mbClick.Pressed && _textEditor.Visible)
-		{
-			var editorRect = new Rect2(_textEditor.Position, _textEditor.Size);
-			if (!editorRect.HasPoint(mbClick.Position))
-			{
-				_editingClip = null;
-				_textEditor.Visible = false;
-			}
-		}
-
 		if (!_pipInteractive) return;
 		if (ev is InputEventMouseButton mb2 && mb2.ButtonIndex == MouseButton.Left)
 		{
@@ -638,23 +506,6 @@ public partial class OutputPreview : VBoxContainer
 		_display.Texture = src.GetVideoTexture();
 	}
 
-	private void FindActiveClipAndNotify(float rotation)
-	{
-		if (_displayActiveClip == null) return;
-		foreach (var (key, node) in _displayLayerNodes)
-		{
-			var (ti, ci) = key;
-			if (ti < _displayTracks.Count && ci < _displayTracks[ti].Clips.Count)
-			{
-				var clip = _displayTracks[ti].Clips[ci];
-				if (clip == _displayActiveClip)
-				{
-					RotationChanged?.Invoke((ti, ci, rotation));
-					return;
-				}
-			}
-		}
-	}
 
 	private void UpdateDisplayLayers()
 	{
@@ -720,20 +571,6 @@ public partial class OutputPreview : VBoxContainer
 					}
 				}
 			}
-		}
-
-		// Show rotation bar for active image/gif clip
-		if (_displayActiveClip != null && _displayActiveClip.ClipType is ClipType.Image or ClipType.Gif)
-		{
-			_rotationBar.Visible = true;
-			var clipPos = _displayActiveClip.Position * ds;
-			var clipSize = _displayActiveClip.Size * ds;
-			_rotationBar.Position = new Vector2(clipPos.X + clipSize.X - _rotationBar.Size.X, clipPos.Y - 30);
-			_rotationLabel.Text = $"{(int)_displayActiveClip.Rotation.StaticValue}°";
-		}
-		else
-		{
-			_rotationBar.Visible = false;
 		}
 	}
 

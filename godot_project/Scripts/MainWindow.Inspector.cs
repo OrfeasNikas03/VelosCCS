@@ -132,29 +132,35 @@ public partial class MainWindow
 
 		AddGridField(grid, "X", clip.PosX.StaticValue, 0f, 1f, 0.01f, v =>
 		{
-			clip.PosX.StaticValue = v;
-			clip.Position = new Vector2(v, clip.Position.Y);
+			ForEachSelectedClip(c =>
+			{
+				c.PosX.StaticValue = v;
+				c.Position = new Vector2(v, c.Position.Y);
+			});
 			RefreshClipViews();
 		}, clip.PosX, clip.Start);
 		AddGridField(grid, "Y", clip.PosY.StaticValue, 0f, 1f, 0.01f, v =>
 		{
-			clip.PosY.StaticValue = v;
-			clip.Position = new Vector2(clip.Position.X, v);
+			ForEachSelectedClip(c =>
+			{
+				c.PosY.StaticValue = v;
+				c.Position = new Vector2(c.Position.X, v);
+			});
 			RefreshClipViews();
 		}, clip.PosY, clip.Start);
 		AddGridField(grid, "Scale", clip.Scale.StaticValue, 0.1f, 3f, 0.05f, v =>
 		{
-			clip.Scale.StaticValue = v;
+			ForEachSelectedClip(c => c.Scale.StaticValue = v);
 			RefreshClipViews();
 		}, clip.Scale, clip.Start);
 		AddGridField(grid, "Opacity", clip.Opacity.StaticValue, 0f, 1f, 0.01f, v =>
 		{
-			clip.Opacity.StaticValue = v;
+			ForEachSelectedClip(c => c.Opacity.StaticValue = v);
 			RefreshClipViews();
 		}, clip.Opacity, clip.Start);
 		AddGridField(grid, "Rotation", clip.Rotation.StaticValue, 0f, 360f, 1f, v =>
 		{
-			clip.Rotation.StaticValue = v;
+			ForEachSelectedClip(c => c.Rotation.StaticValue = v);
 			RefreshClipViews();
 		}, clip.Rotation, clip.Start);
 
@@ -228,7 +234,7 @@ public partial class MainWindow
 		parent.AddChild(new Label { Text = "TEXT", Modulate = Color.FromHtml("#D0570C") });
 
 		var tb = new LineEdit { Text = clip.Text, PlaceholderText = "Type here..." };
-		tb.TextChanged += (t) => { clip.Text = t; RefreshClipViews(); };
+		tb.TextChanged += (t) => { ForEachSelectedClip(c => c.Text = t); RefreshClipViews(); };
 		parent.AddChild(tb);
 
 		// Text keyframe button
@@ -266,8 +272,11 @@ public partial class MainWindow
 
 		AddGridField(textGrid, "Font Size", clip.FontSize, 8, 200, 1, v =>
 		{
-			clip.FontSize = (int)v;
-			clip.FontSizeAnim.StaticValue = v;
+			ForEachSelectedClip(c =>
+			{
+				c.FontSize = (int)v;
+				c.FontSizeAnim.StaticValue = v;
+			});
 			RefreshClipViews();
 		}, clip.FontSizeAnim, clip.Start);
 
@@ -283,17 +292,17 @@ public partial class MainWindow
 
 		textGrid.AddChild(new Label { Text = "Color" });
 		var fgPicker = new ColorPickerButton { Color = clip.FontColor, CustomMinimumSize = new Vector2(0, 30) };
-		fgPicker.ColorChanged += (c) => { clip.FontColor = c; RefreshClipViews(); };
+		fgPicker.ColorChanged += (c) => { ForEachSelectedClip(sc => sc.FontColor = c); RefreshClipViews(); };
 		textGrid.AddChild(fgPicker);
 
 		textGrid.AddChild(new Label { Text = "Outline" });
 		var olPicker = new ColorPickerButton { Color = clip.OutlineColor, CustomMinimumSize = new Vector2(0, 30) };
-		olPicker.ColorChanged += (c) => { clip.OutlineColor = c; RefreshClipViews(); };
+		olPicker.ColorChanged += (c) => { ForEachSelectedClip(sc => sc.OutlineColor = c); RefreshClipViews(); };
 		textGrid.AddChild(olPicker);
 
 		AddGridField(textGrid, "Outline W", clip.OutlineWidth, 0, 20, 1, v =>
 		{
-			clip.OutlineWidth = (int)v;
+			ForEachSelectedClip(c => c.OutlineWidth = (int)v);
 			RefreshClipViews();
 		});
 	}
@@ -372,5 +381,28 @@ public partial class MainWindow
 		_overlay.RefreshActiveLayer();
 		_outputPreview.RefreshDisplayLayer();
 		_timeline.QueueRedraw();
+	}
+
+	// Apply an action to every selected clip by mapping flat timeline indices
+	// back to TrackClipData in _tracks.
+	private void ForEachSelectedClip(System.Action<TrackClipData> action)
+	{
+		var sel = _timeline.GetSelectedIndices();
+		if (sel.Length == 0)
+		{
+			if (_selTrackIdx >= 0 && _selClipIdx >= 0)
+				action(_tracks[_selTrackIdx].Clips[_selClipIdx]);
+			return;
+		}
+		int fi = 0;
+		for (int t = 0; t < _tracks.Count; t++)
+		{
+			for (int ci = 0; ci < _tracks[t].Clips.Count; ci++)
+			{
+				if (sel.Contains(fi))
+					action(_tracks[t].Clips[ci]);
+				fi++;
+			}
+		}
 	}
 }

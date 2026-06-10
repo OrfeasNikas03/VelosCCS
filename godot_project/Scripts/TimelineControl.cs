@@ -163,6 +163,15 @@ public partial class TimelineControl : Control
 		QueueRedraw();
 	}
 
+	public void SelectAndSeek(int flatIndex, double time)
+	{
+		_selectedIndices.Clear();
+		_selectedIndices.Add(flatIndex);
+		_selectedIdx = flatIndex;
+		SelectionPos = time;
+		QueueRedraw();
+	}
+
 	public void SetClips(List<ClipData> clips, int selected)
 	{
 		Log.Print($"[Timeline] SetClips count={clips.Count} selected={selected}");

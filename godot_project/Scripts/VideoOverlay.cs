@@ -43,6 +43,8 @@ public partial class VideoOverlay : Control
 	private List<TrackData> _tracks = new();
 	private readonly Dictionary<(int, int), Control> _layerNodes = new();
 	private TrackClipData? _activeClip;
+	private int _activeTrackIdx = -1;
+	private int _activeClipIdx = -1;
 	private double _currentTime;
 	private OverlayMode _mode = OverlayMode.Layout;
 
@@ -96,6 +98,50 @@ public partial class VideoOverlay : Control
 				UpdateLayerVisibility();
 		};
 		AddChild(updateTimer);
+
+		// Inline text editor — fully seamless, positioned over text nodes on double-click
+		_textEditor = new LineEdit
+		{
+			Visible = false,
+			ZIndex = 20,
+			CaretBlink = true,
+		};
+		var emptyBox = new StyleBoxFlat { BgColor = Colors.Transparent };
+		emptyBox.SetBorderWidthAll(0);
+		_textEditor.AddThemeStyleboxOverride("normal", emptyBox);
+		_textEditor.AddThemeStyleboxOverride("focus", emptyBox);
+		_textEditor.AddThemeColorOverride("font_color", Colors.White);
+		_textEditor.AddThemeColorOverride("font_uneditable_color", Colors.White);
+		_textEditor.AddThemeConstantOverride("minimum_character_width", 0);
+		_textEditor.TextSubmitted += text =>
+		{
+			ApplyTextEditing();
+		};
+		_textEditor.FocusExited += () =>
+		{
+			ApplyTextEditing();
+		};
+		AddChild(_textEditor);
+	}
+
+	private void ApplyTextEditing()
+	{
+		if (_editingClip == null) { _textEditor.Visible = false; return; }
+		var (ti, ci) = _editingClip.Value;
+		if (ti < _tracks.Count && ci < _tracks[ti].Clips.Count)
+		{
+			var clip = _tracks[ti].Clips[ci];
+			if (_textEditor.Text != clip.Text)
+			{
+				clip.Text = _textEditor.Text;
+				TextEdited?.Invoke(ti, ci, _textEditor.Text);
+			}
+		}
+		// Restore the hidden text node
+		if (_layerNodes.TryGetValue((ti, ci), out var node))
+			node.Visible = true;
+		_editingClip = null;
+		_textEditor.Visible = false;
 	}
 
 	public void SetMode(OverlayMode mode)
@@ -142,6 +188,8 @@ public partial class VideoOverlay : Control
 	{
 		Log.Print($"[Overlay] SelectLayer track={t} clip={c}");
 		_activeClip = clip;
+		_activeTrackIdx = t;
+		_activeClipIdx = c;
 		_pipMode = PipEditMode.None;
 		QueueRedraw();
 	}
@@ -301,8 +349,12 @@ public partial class VideoOverlay : Control
 			var clip = _tracks[ti].Clips[ci];
 			bool inTime = _currentTime >= clip.Start && _currentTime <= clip.End;
 			bool visible = !_tracks[ti].Muted && inTime;
-			node.Visible = visible;
-			if (visible)
+			// Don't touch visibility of the node being inline-edited
+			if (_editingClip != null && _editingClip.Value == (ti, ci))
+				node.Visible = false;
+			else
+				node.Visible = visible;
+			if (visible && !(_editingClip != null && _editingClip.Value == (ti, ci)))
 			{
 				node.SetAnchorsPreset(LayoutPreset.TopLeft);
 				node.PivotOffset = Vector2.Zero;
@@ -376,6 +428,22 @@ public partial class VideoOverlay : Control
 		QueueRedraw();
 	}
 
+	public Action<int, int>? LayerClicked;
+	public Action<int, int, string>? TextEdited;
+	public Action<int, int, float>? RotationChanged;
+
+	// Inline text editing
+	private LineEdit _textEditor = null!;
+	private (int ti, int ci)? _editingClip;
+
+	// Rotation drag
+	private bool _isRotating;
+	private float _rotationStartAngle;
+	private float _rotationStartValue;
+	private const float RotationHandleOffset = 20f;
+	private const float RotationHandleRadius = 6f;
+	private const float RotationHandleGrab = 14f;
+
 	public void ClearLayers()
 	{
 		Log.Print("[Overlay] ClearLayers");
@@ -441,6 +509,10 @@ public partial class VideoOverlay : Control
 				float half = LayerHandleSize / 2f;
 				foreach (var p in GetRotatedCorners(-sz * 0.5f, sz))
 					DrawRect(new Rect2(p.X - half, p.Y - half, LayerHandleSize, LayerHandleSize), new Color(0.34f, 0.65f, 1, 0.9f));
+				// Rotation handle above top-center
+				var handlePos = new Vector2(0, -sz.Y * 0.5f - RotationHandleOffset);
+				DrawLine(new Vector2(0, -sz.Y * 0.5f), handlePos, new Color(0.34f, 0.65f, 1, 0.7f), 1.5f);
+				DrawCircle(handlePos, RotationHandleRadius, new Color(0.34f, 0.65f, 1, 0.9f));
 				DrawSetTransform(Vector2.Zero, 0, Vector2.One);
 			}
 			else
@@ -450,6 +522,11 @@ public partial class VideoOverlay : Control
 				float half = LayerHandleSize / 2f;
 				foreach (var p in GetLayerCornersPx())
 					DrawRect(new Rect2(p.X - half, p.Y - half, LayerHandleSize, LayerHandleSize), new Color(0.34f, 0.65f, 1, 0.9f));
+				// Rotation handle above top-center
+				var topCenter = new Vector2(pos.X + sz.X * 0.5f, pos.Y);
+				var handlePos = new Vector2(pos.X + sz.X * 0.5f, pos.Y - RotationHandleOffset);
+				DrawLine(topCenter, handlePos, new Color(0.34f, 0.65f, 1, 0.7f), 1.5f);
+				DrawCircle(handlePos, RotationHandleRadius, new Color(0.34f, 0.65f, 1, 0.9f));
 			}
 		}
 	}
@@ -460,6 +537,21 @@ public partial class VideoOverlay : Control
 		var pos = _activeClip!.Position * ds;
 		var sz = _activeClip.Size * ds;
 		return new[] { pos, new Vector2(pos.X + sz.X, pos.Y), new Vector2(pos.X, pos.Y + sz.Y), pos + sz };
+	}
+
+	private Vector2 GetRotationHandlePx()
+	{
+		var ds = Size;
+		var pos = _activeClip!.Position * ds;
+		var sz = _activeClip.Size * ds;
+		var center = pos + sz * 0.5f;
+		var localHandle = new Vector2(0, -sz.Y * 0.5f - RotationHandleOffset);
+		float rotRad = Mathf.DegToRad(_activeClip.Rotation.StaticValue);
+		float cos = Mathf.Cos(rotRad), sin = Mathf.Sin(rotRad);
+		return new Vector2(
+			center.X + localHandle.X * cos - localHandle.Y * sin,
+			center.Y + localHandle.X * sin + localHandle.Y * cos
+		);
 	}
 
 	private Vector2[] GetRotatedCorners(Vector2 origin, Vector2 size)
@@ -579,57 +671,184 @@ public partial class VideoOverlay : Control
 			HandlePipDrag(@event);
 			return;
 		}
-		if (_activeClip == null) return;
 
-		if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left)
+		// Double-click: inline text editing
+		if (@event is InputEventMouseButton mbDc && mbDc.DoubleClick && mbDc.ButtonIndex == MouseButton.Left)
 		{
-			if (mb.Pressed)
+			var mpos = mbDc.Position;
+			foreach (var (key, node) in _layerNodes)
 			{
-				var mpos = mb.Position;
-				var ds = Size;
-				if (ds.X <= 0) return;
+				var (ti, ci) = key;
+				if (!node.Visible) continue;
+				if (ti >= _tracks.Count || ci >= _tracks[ti].Clips.Count) continue;
+				var clip = _tracks[ti].Clips[ci];
+				if (clip.ClipType != ClipType.Text) continue;
+				if (!(node is Label)) continue;
+				var hitRect = new Rect2(node.Position, node.Size);
+				if (!hitRect.HasPoint(mpos)) continue;
 
-				// Check corner handles
-				var corners = new[]
+				// Select this clip
+				SelectLayer(ti, ci, clip);
+				LayerClicked?.Invoke(ti, ci);
+
+				// Hide the original text node
+				node.Visible = false;
+
+				// Match font and scaled size to the text display in UpdateLayerVisibility
+				float fontScale = Size.Y / 720f;
+				int fontSize = (int)Math.Max(8, clip.FontSize * fontScale);
+				_textEditor.AddThemeFontSizeOverride("font_size", fontSize);
+				_textEditor.AddThemeColorOverride("font_color", clip.FontColor);
+
+				Font font;
+				if (!string.IsNullOrEmpty(clip.FontPath))
 				{
-					_activeClip.Position * ds,
-					new Vector2((_activeClip.Position.X + _activeClip.Size.X) * ds.X, _activeClip.Position.Y * ds.Y),
-					new Vector2(_activeClip.Position.X * ds.X, (_activeClip.Position.Y + _activeClip.Size.Y) * ds.Y),
-					(_activeClip.Position + _activeClip.Size) * ds,
-				};
-				for (int i = 0; i < corners.Length; i++)
-				{
-					if (corners[i].DistanceTo(mpos) < LayerHandleGrab)
+					try
 					{
-						_isDraggingLayer = true;
-						_layerDragCorner = i;
-						_layerDragOrigPos = _activeClip.Position;
-						_layerDragOrigSize = _activeClip.Size;
-						_layerDragStart = mpos;
-						AcceptEvent();
-						return;
+						var ff = new FontFile();
+						ff.LoadDynamicFont(clip.FontPath);
+						_textEditor.AddThemeFontOverride("font", ff);
+						font = ff;
+					}
+					catch
+					{
+						font = ThemeDB.FallbackFont;
+						_textEditor.AddThemeFontOverride("font", font);
 					}
 				}
+				else
+				{
+					font = ThemeDB.FallbackFont;
+					_textEditor.AddThemeFontOverride("font", font);
+				}
 
-				// Check body
-				var clipRect = new Rect2(_activeClip.Position * ds, _activeClip.Size * ds);
-				if (clipRect.HasPoint(mpos))
+				string displayText = clip.GetTextAt(_currentTime - clip.Start);
+				var textSize = font.GetStringSize(displayText, HorizontalAlignment.Left, -1, fontSize);
+				float pad = 6f;
+				var editorSize = new Vector2(textSize.X + pad * 2, textSize.Y + pad * 2);
+				var centerPx = node.Position + node.Size * 0.5f;
+				_textEditor.Size = editorSize;
+				_textEditor.Position = centerPx - editorSize * 0.5f;
+				_textEditor.Text = displayText;
+
+				_editingClip = (ti, ci);
+				_textEditor.Visible = true;
+				_textEditor.CallDeferred("grab_focus");
+				_textEditor.CaretColumn = _textEditor.Text.Length;
+				AcceptEvent();
+				return;
+			}
+		}
+
+		// Single-click: dismiss text editor if clicking outside it
+		if (@event is InputEventMouseButton mbClick && mbClick.Pressed && mbClick.ButtonIndex == MouseButton.Left && _textEditor.Visible)
+		{
+			var editorRect = new Rect2(_textEditor.Position, _textEditor.Size);
+			if (!editorRect.HasPoint(mbClick.Position))
+			{
+				ApplyTextEditing();
+			}
+		}
+
+		if (@event is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed && !_textEditor.Visible)
+		{
+			var mpos = mb.Position;
+			var ds = Size;
+			if (ds.X <= 0) return;
+
+			// Hit-test all visible layer nodes first
+			foreach (var (key, node) in _layerNodes)
+			{
+				var (ti, ci) = key;
+				if (!node.Visible) continue;
+				if (ti >= _tracks.Count || ci >= _tracks[ti].Clips.Count) continue;
+				var hitRect = new Rect2(node.Position, node.Size);
+				if (!hitRect.HasPoint(mpos)) continue;
+
+				var clickedClip = _tracks[ti].Clips[ci];
+				if (clickedClip == _activeClip)
+				{
+					// Active clip clicked — proceed to drag/resize below
+					goto ActiveClipCheck;
+				}
+				// Different clip clicked — select it and stop
+				SelectLayer(ti, ci, clickedClip);
+				LayerClicked?.Invoke(ti, ci);
+				AcceptEvent();
+				return;
+			}
+
+			ActiveClipCheck:
+			if (_activeClip == null) return;
+
+			// Check rotation handle (above top-center of bounding box)
+			if (GetRotationHandlePx().DistanceTo(mpos) < RotationHandleGrab)
+			{
+				_isRotating = true;
+				_rotationStartValue = _activeClip.Rotation.StaticValue;
+				var centerPx = _activeClip.Position * ds + _activeClip.Size * ds * 0.5f;
+				_rotationStartAngle = Mathf.RadToDeg(Mathf.Atan2(mpos.Y - centerPx.Y, mpos.X - centerPx.X));
+				AcceptEvent();
+				return;
+			}
+
+			// Check corner handles
+			var corners = new[]
+			{
+				_activeClip.Position * ds,
+				new Vector2((_activeClip.Position.X + _activeClip.Size.X) * ds.X, _activeClip.Position.Y * ds.Y),
+				new Vector2(_activeClip.Position.X * ds.X, (_activeClip.Position.Y + _activeClip.Size.Y) * ds.Y),
+				(_activeClip.Position + _activeClip.Size) * ds,
+			};
+			for (int i = 0; i < corners.Length; i++)
+			{
+				if (corners[i].DistanceTo(mpos) < LayerHandleGrab)
 				{
 					_isDraggingLayer = true;
-					_layerDragCorner = -1;
+					_layerDragCorner = i;
 					_layerDragOrigPos = _activeClip.Position;
+					_layerDragOrigSize = _activeClip.Size;
 					_layerDragStart = mpos;
 					AcceptEvent();
+					return;
 				}
 			}
-			else if (_isDraggingLayer)
+
+			// Check body
+			var clipRect = new Rect2(_activeClip.Position * ds, _activeClip.Size * ds);
+			if (clipRect.HasPoint(mpos))
 			{
-				_isDraggingLayer = false;
+				_isDraggingLayer = true;
 				_layerDragCorner = -1;
+				_layerDragOrigPos = _activeClip.Position;
+				_layerDragStart = mpos;
+				AcceptEvent();
 			}
+		}
+		else if (@event is InputEventMouseButton mb2 && mb2.ButtonIndex == MouseButton.Left && !mb2.Pressed && (_isDraggingLayer || _isRotating))
+		{
+			_isDraggingLayer = false;
+			_layerDragCorner = -1;
+			_isRotating = false;
+		}
+		else if (@event is InputEventMouseMotion mmRot && _isRotating)
+		{
+			if (_activeClip == null) return;
+			var ds = Size;
+			var centerPx = _activeClip.Position * ds + _activeClip.Size * ds * 0.5f;
+			float curAngle = Mathf.RadToDeg(Mathf.Atan2(mmRot.Position.Y - centerPx.Y, mmRot.Position.X - centerPx.X));
+			float delta = curAngle - _rotationStartAngle;
+			float newRot = (_rotationStartValue + delta) % 360f;
+			if (newRot < 0) newRot += 360f;
+			_activeClip.Rotation.StaticValue = newRot;
+			if (_activeTrackIdx >= 0 && _activeClipIdx >= 0 && _activeTrackIdx < _tracks.Count && _activeClipIdx < _tracks[_activeTrackIdx].Clips.Count)
+				RotationChanged?.Invoke(_activeTrackIdx, _activeClipIdx, newRot);
+			QueueRedraw();
+			AcceptEvent();
 		}
 		else if (@event is InputEventMouseMotion mm && _isDraggingLayer)
 		{
+			if (_activeClip == null) return;
 			var delta = (mm.Position - _layerDragStart) / Size;
 			var ds = Size;
 

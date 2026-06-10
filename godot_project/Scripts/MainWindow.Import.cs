@@ -199,7 +199,6 @@ public partial class MainWindow
 				Start = pos,
 				End = pos + dur,
 				FilePath = asset.Path,
-				WaveformPeaks = asset.WaveformPeaks ?? new(),
 			};
 			vidTrack.Clips.Add(clip);
 
@@ -216,6 +215,7 @@ public partial class MainWindow
 				Start = pos,
 				End = pos + dur,
 				FilePath = asset.Path,
+				WaveformPeaks = asset.WaveformPeaks ?? new(),
 			});
 
 			// Clone into existing layout tracks so new clip inherits size/position

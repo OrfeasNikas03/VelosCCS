@@ -955,21 +955,24 @@ public partial class MainWindow : Control
 		_outputPreview = new OutputPreview();
 		_outputPreview.Setup(_videoPlayer);
 		_outputPreview.SetOverlay(_overlay);
-		_outputPreview.TextEdited += ((int ti, int ci, string text) args) =>
+		_overlay.LayerClicked += (ti, ci) =>
 		{
-			if (args.ti >= 0 && args.ti < _tracks.Count && args.ci >= 0 && args.ci < _tracks[args.ti].Clips.Count)
+			if (ti >= 0 && ti < _tracks.Count && ci >= 0 && ci < _tracks[ti].Clips.Count)
 			{
-				var clip = _tracks[args.ti].Clips[args.ci];
-				clip.Text = args.text;
+				OnSelectClip(ti, ci);
+			}
+		};
+		_overlay.TextEdited += (ti, ci, text) =>
+		{
+			if (ti >= 0 && ti < _tracks.Count && ci >= 0 && ci < _tracks[ti].Clips.Count)
+			{
 				RefreshClipViews();
 			}
 		};
-		_outputPreview.RotationChanged += ((int ti, int ci, float rotation) args) =>
+		_overlay.RotationChanged += (ti, ci, rotation) =>
 		{
-			if (args.ti >= 0 && args.ti < _tracks.Count && args.ci >= 0 && args.ci < _tracks[args.ti].Clips.Count)
+			if (ti >= 0 && ti < _tracks.Count && ci >= 0 && ci < _tracks[ti].Clips.Count)
 			{
-				var clip = _tracks[args.ti].Clips[args.ci];
-				clip.Rotation.StaticValue = args.rotation;
 				RefreshClipViews();
 			}
 		};
@@ -1257,7 +1260,7 @@ public partial class MainWindow : Control
 		}
 		// Sidebar always visible; slide panel opens automatically
 		_slideOpen = true;
-		_slideWrapper.CustomMinimumSize = new Vector2(240, 0);
+		_slideWrapper.CustomMinimumSize = new Vector2(280, 0);
 		_toggleBtn.Visible = (state != ViewState.Import);
 		_slideTabs.Visible = (state == ViewState.Edit);
 		if (state == ViewState.Layout)
@@ -1367,7 +1370,7 @@ public partial class MainWindow : Control
 		if (_slideOpen)
 		{
 			var t = CreateTween();
-			t.TweenProperty(_slideWrapper, "custom_minimum_size", new Vector2(240, 0), 0.25f).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+			t.TweenProperty(_slideWrapper, "custom_minimum_size", new Vector2(280, 0), 0.25f).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
 			t.Finished += () => this.LogSizes("SlidePanel/Open");
 			_toggleBtn.Text = (_currentState == ViewState.Layout ? "Layout" : "Media") + " \u25C2";
 		}
